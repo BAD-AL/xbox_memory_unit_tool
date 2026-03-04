@@ -8,11 +8,14 @@ class FatxImage {
   late final FatxTable fat;
 
   FatxImage(this.bytes) {
-    if (bytes.length != FatxConfig.muSize) {
-      throw ArgumentError('Image must be exactly ${FatxConfig.muSize} bytes');
+    if (bytes.length < FatxConfig.muSize) {
+      throw ArgumentError('Image must be at least ${FatxConfig.muSize} bytes');
+    }
+    if (bytes.length % FatxConfig.clusterSizeReal != 0) {
+      throw ArgumentError('Image size must be a multiple of the cluster size (16KB)');
     }
     final fatArea = Uint8List.sublistView(bytes, FatxConfig.fatOffset, FatxConfig.fatOffset + 4096);
-    fat = FatxTable(fatArea);
+    fat = FatxTable(fatArea, bytes.length);
   }
 
   /// Returns the cluster chain for a given start cluster.

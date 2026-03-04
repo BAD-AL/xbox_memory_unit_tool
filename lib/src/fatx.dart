@@ -15,9 +15,10 @@ class FatxConfig {
 /// File Allocation Table (FAT16) management.
 class FatxTable {
   final Uint8List _bytes;
+  final int imageSizeBytes;
   static const int fatEntrySize = 2; // Uint16
 
-  FatxTable(this._bytes) {
+  FatxTable(this._bytes, this.imageSizeBytes) {
     if (_bytes.length != 4096) throw ArgumentError('FAT area must be 4KB');
   }
 
@@ -41,9 +42,16 @@ class FatxTable {
 
   /// Finds the next free cluster (starting from index 2).
   int allocateCluster() {
-    // 8MB / 16KB real cluster size = 512 clusters.
-    // Index 1 is the Root Directory. Indices 2-512 are Data.
-    for (var i = 2; i <= 512; i++) {
+    // Total clusters = ImageSize / ClusterSize
+    // (Wait: FATX uses 16KB real clusters, but internal reporting is 2KB)
+    // For our 16KB mapping, the number of entries needed is ImageSize / 16384
+    final maxClusters = (imageSizeBytes / FatxConfig.clusterSizeReal).floor();
+    
+    // Safety: The 4KB FAT can hold at most 2048 entries. 
+    // (2048 * 16KB = 32MB). If image > 32MB, the FAT itself would need to be larger.
+    final limit = maxClusters > 2048 ? 2048 : maxClusters;
+
+    for (var i = 2; i <= limit; i++) {
       if (getEntry(i) == 0x0000) {
         setEntry(i, 0xFFFF); // Mark as EOF
         return i;
