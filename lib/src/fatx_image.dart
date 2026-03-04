@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 import 'fatx.dart';
 
+// FatxImage - refers to a 8MB XBOX/XEMU 'memory unit' file.
+
 class FatxImage {
   final Uint8List bytes;
   late final FatxTable fat;
@@ -89,7 +91,20 @@ class FatxImage {
       }
     }
 
-    // TODO: If no empty entries, extend the directory chain by allocating a new cluster.
-    throw UnimplementedError('Directory extension not yet implemented.');
+    // If no empty entries, extend the directory chain by allocating a new cluster.
+    final lastCluster = chain.last;
+    final newCluster = fat.allocateCluster(); // Allocates and marks as 0xFFFF
+    
+    // Link the previous last cluster to the new cluster
+    fat.setEntry(lastCluster, newCluster);
+    
+    // Initialize new cluster with 0xFF (XEMU/FATX standard for empty directory space)
+    final padding = Uint8List(FatxConfig.clusterSizeReal)
+      ..fillRange(0, FatxConfig.clusterSizeReal, 0xFF);
+    writeCluster(newCluster, padding);
+    
+    // Write the new entry to the first slot of the new cluster
+    final entryOffset = FatxMapper.clusterToOffset(newCluster);
+    bytes.setRange(entryOffset, entryOffset + FatxDirEntry.entrySize, newEntry.toBytes());
   }
 }

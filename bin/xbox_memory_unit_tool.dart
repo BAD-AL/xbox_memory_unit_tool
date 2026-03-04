@@ -23,21 +23,35 @@ void main(List<String> arguments) {
     return;
   }
 
-  switch (command.name) {
-    case 'format':
-      handleFormat(command);
-      break;
-    case 'ls':
-      handleLs(command);
-      break;
-    case 'import':
-      handleImport(command);
-      break;
-    case 'export':
-      handleExport(command);
-      break;
-    default:
-      printUsage(parser);
+  try {
+    switch (command.name) {
+      case 'format':
+        handleFormat(command);
+        break;
+      case 'ls':
+        handleLs(command);
+        break;
+      case 'import':
+        handleImport(command);
+        break;
+      case 'export':
+        handleExport(command);
+        break;
+      default:
+        printUsage(parser);
+    }
+  } catch (e) {
+    _printError(e);
+  }
+}
+
+void _printError(Object e) {
+  if (e is UnimplementedError) {
+    print('Error: This feature is not yet implemented.');
+  } else {
+    // Format the exception string to be user-friendly
+    final msg = e.toString().replaceFirst('Exception: ', '');
+    print('Error: $msg');
   }
 }
 
@@ -154,13 +168,9 @@ void handleExport(ArgResults results) {
   final bytes = File(imagePath).readAsBytesSync();
   final mu = XboxMemoryUnit.fromBytes(bytes);
 
-  try {
-    print('Searching for $searchPath...');
-    final zipBytes = mu.export(searchPath);
-    print('Exporting to $zipPath...');
-    File(zipPath).writeAsBytesSync(zipBytes);
-    print('Done.');
-  } catch (e) {
-    print('Error: ${e.toString()}');
-  }
+  print('Searching for $searchPath...');
+  final zipBytes = mu.export(searchPath);
+  print('Exporting to $zipPath...');
+  File(zipPath).writeAsBytesSync(zipBytes);
+  print('Done.');
 }
