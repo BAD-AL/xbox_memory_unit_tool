@@ -18,4 +18,10 @@
     - [x] Verify parity against `XEMU_Created_default_roster.bin`.
     - [x] Verify ZIP round-tripping with `test_import_minimal.zip`.
 
+- [x] **Phase 5: Architectural Refinement & Robustness**
+    - [x] Refactor CLI to use High-Level API.
+    - [x] Implement directory chain extension (support > 256 entries).
+    - [x] Consolidate CLI error handling (user-friendly messages).
+    - [x] Verify robustness with `test/robustness_test.dart`.
+
 *Status: Completed*

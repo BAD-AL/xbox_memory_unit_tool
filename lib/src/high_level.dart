@@ -8,6 +8,8 @@ import 'searcher.dart';
 import 'xbx_meta.dart';
 import 'models.dart';
 
+// High-level API types
+
 class XboxMemoryUnit {
   final FatxImage _image;
 
