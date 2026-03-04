@@ -41,10 +41,9 @@ class FatxTable {
 
   /// Finds the next free cluster (starting from index 2).
   int allocateCluster() {
-    // 8MB image has 4096 clusters (8MB / 2KB) - Wait, no.
     // 8MB / 16KB real cluster size = 512 clusters.
-    // The FAT is 4KB, so 2048 entries.
-    for (var i = 2; i < 2048; i++) {
+    // Index 1 is the Root Directory. Indices 2-512 are Data.
+    for (var i = 2; i <= 512; i++) {
       if (getEntry(i) == 0x0000) {
         setEntry(i, 0xFFFF); // Mark as EOF
         return i;
