@@ -41,7 +41,7 @@ For 8MB Memory Units to be visible in Xemu and games like NFL 2K5, the filesyste
 | :--- | :--- | :--- | :--- |
 | 0 | Uint8 | Filename Length | Number of characters (1-42) |
 | 1 | Uint8 | Attributes | See 3.2.1 |
-| 2 | String(42) | Filename | Null-padded ASCII |
+| 2 | String(42) | Filename | **0xFF-padded** ASCII |
 | 44 | Uint32 | First Cluster | Starting cluster index |
 | 48 | Uint32 | File Size | Size in bytes |
 | 52 | Uint16 | Creation Time | FATX encoded time |
@@ -54,14 +54,14 @@ For 8MB Memory Units to be visible in Xemu and games like NFL 2K5, the filesyste
 #### 3.2.1 Attributes Bitmask
 - `0x01`: Read Only
 - `0x02`: Hidden
-- `0x04`: System (**Note**: Our research shows `.xbx` files must have bit `0x04` or `0x02` for dashboard visibility).
+- `0x04`: System (**Requirement**: All `.xbx` files MUST have this bit set for dashboard visibility).
 - `0x10`: Directory
 
 ## 4. Logical Implementation
 
 ### 4.1 File Allocation Table (FAT16)
 - Each entry is **2 bytes** (Uint16).
-- **Entry 0**: Media Byte (Reserved). Write `0xF8FF`.
+- **Entry 0**: Media Byte (Reserved). Write `0xFFF8` (stored as `F8 FF`).
 - **Entry 1**: Corresponds to the Root Directory cluster.
 - **Values**:
   - `0x0000`: Available cluster.
@@ -76,12 +76,13 @@ For 8MB Memory Units to be visible in Xemu and games like NFL 2K5, the filesyste
 5. Extract metadata and repeat.
 
 ### 4.3 Formatting a New Image
-1. Create an 8MB buffer filled with `0x00`.
+1. Create an 8MB buffer filled with **`0xFF`**.
 2. Write the Superblock at `0x0000`.
 3. Initialize FAT at `0x1000`:
-   - Set Entry 0 to `0xF8FF`.
+   - Set Entry 0 to `0xFFF8`.
    - Set Entry 1 to `0xFFFF` (Empty root).
-4. **Important**: All directory clusters (including Root) should be initialized with `0x00`, not `0xFF`.
+   - **All other FAT entries MUST be `0x0000`**.
+4. **Important**: While the image is padded with `0xFF`, the FAT area entries (except 0 and 1) must be `0x0000` to indicate free space.
 
 ## 5. ZIP Integration
 - **Import**: 

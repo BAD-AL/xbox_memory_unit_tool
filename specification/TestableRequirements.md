@@ -9,11 +9,11 @@ This document defines the acceptance criteria for a valid pure-Dart FATX impleme
 | **TR-1** | Formatting Signature | A newly formatted image MUST contain `FATX` at offset `0x00`. |
 | **TR-2** | Volume ID | A newly formatted 8MB image MUST have the bytes `29 00 00 00` at offset `0x04`. |
 | **TR-3** | Hybrid Offsets | Cluster 2 MUST start at exactly `0x6000` (8KB Superblock/FAT + 16KB Cluster 1). |
-| **TR-4** | Zero Initialization | New directory clusters MUST be initialized with `0x00` bytes. |
+| **TR-4** | Padding Initialization | New images and directory clusters MUST be initialized with `0xFF` bytes, except for the FAT area which uses `0x00` for free clusters. |
 | **TR-5** | End-of-Directory | The reader MUST recognize both `0x00` and `0xFF` as directory terminators. |
 | **TR-6** | Path Normalization | Importing `UDATA/TitleID/file` MUST strip `UDATA/` and place `TitleID` at the FATX root. |
 | **TR-7** | ZIP Compatibility | Exporting a directory MUST prepend `UDATA/` to all entries in the resulting ZIP. |
-| **TR-8** | Hidden Attribute | Any file ending in `.xbx` MUST have the attribute bit `0x04` set in its directory entry. |
+| **TR-8** | Hidden/System Attribute | Any file ending in `.xbx` MUST have the attribute bit `0x04` set in its directory entry. |
 | **TR-9** | Filename Limits | The implementation MUST reject or truncate filenames longer than 42 characters. |
 | **TR-10** | FAT16 Chaining | Files > 16,384 bytes MUST correctly link multiple clusters in the FAT area (`0x1000`). |
 | **TR-11** | Integrity Comparison | A comparison between two images MUST pass if they are bit-identical, ignoring Volume IDs and Timestamps. |

@@ -47,9 +47,10 @@ class FatxImporter {
           ..firstCluster = newCluster
           ..fileSize = 0;
         
-        // Initialize directory cluster with zeros
-        final zeros = Uint8List(FatxConfig.clusterSizeReal);
-        image.writeCluster(newCluster, zeros);
+        // Initialize directory cluster with 0xFF (XEMU Gold Standard)
+        final padding = Uint8List(FatxConfig.clusterSizeReal)
+          ..fillRange(0, FatxConfig.clusterSizeReal, 0xFF);
+        image.writeCluster(newCluster, padding);
         
         image.addEntry(currentDirCluster, dirEntry);
         currentDirCluster = newCluster;
@@ -66,7 +67,7 @@ class FatxImporter {
     final entry = FatxDirEntry()
       ..filename = filename
       ..filenameLength = filename.length
-      ..attributes = filename.toLowerCase().endsWith('.xbx') ? FatxDirEntry.attrHidden : 0x00
+      ..attributes = filename.toLowerCase().endsWith('.xbx') ? FatxDirEntry.attrSystem : 0x00
       ..firstCluster = firstCluster
       ..fileSize = data.length;
 

@@ -150,7 +150,7 @@ class FatxDirEntry {
     // Filename (truncated to 42 chars)
     final nameCodes = filename.codeUnits;
     for (var i = 0; i < 42; i++) {
-      view.setUint8(2 + i, i < nameCodes.length ? nameCodes[i] : 0x00);
+      view.setUint8(2 + i, i < nameCodes.length ? nameCodes[i] : 0xFF);
     }
 
     view.setUint32(44, firstCluster, Endian.little);

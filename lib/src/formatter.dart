@@ -4,15 +4,17 @@ import 'fatx.dart';
 class FatxFormatter {
   /// Formats an 8MB buffer as an Xbox FATX Memory Unit.
   static Uint8List format() {
-    final buffer = Uint8List(FatxConfig.muSize);
+    // 1. Initialize entire image with 0xFF padding (XEMU Gold Standard)
+    final buffer = Uint8List(FatxConfig.muSize)..fillRange(0, FatxConfig.muSize, 0xFF);
     
-    // 1. Initialize Superblock (4KB) with 0xFF padding
-    for (var i = 0; i < 4096; i++) {
-      buffer[i] = 0xFF;
+    // 2. Clear FAT area to 0x00 for free clusters
+    for (var i = FatxConfig.fatOffset; i < FatxConfig.fatOffset + 4096; i++) {
+      buffer[i] = 0x00;
     }
 
     final view = ByteData.view(buffer.buffer);
 
+    // Write Superblock (4KB) at offset 0
     // Offset 0: 'FATX' (Signature)
     view.setUint8(0, 'F'.codeUnitAt(0));
     view.setUint8(1, 'A'.codeUnitAt(0));
