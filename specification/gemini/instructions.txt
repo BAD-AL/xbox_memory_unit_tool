@@ -1,0 +1,21 @@
+This is a dart project for dealing with XEMU compatible (OG Xbox) Memory Units.
+
+The program is to have a CLI like the following:
+    Usage: xbmut <command> [arguments]
+    Commands:
+        ls <image_path> [dir_path]           List files recursively starting at <dir_path>
+        import <image_path> <zip_path>       Import a save ZIP
+        export <image_path> <src_dir> <zip>  Export a directory to ZIP
+        format <image_path>                  Produce a formatted 8MB image file
+
+The code for this program should be as cross-platform as possible with a future goal of running 
+in a web browser.
+
+Please read through the following:
+@SuperPowers.md
+specification/FATX_MU_Spec.md 
+specification/TestableRequirements.md 
+
+Test files are provided in the test/test_files/ folder.
+
+Please give any suggestions and ask any clarifying questions for this project.
