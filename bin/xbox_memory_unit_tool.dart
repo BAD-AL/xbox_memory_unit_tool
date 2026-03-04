@@ -100,11 +100,26 @@ void handleLs(ArgResults results) {
 void _listRecursive(FatxImage image, int cluster, String indent) {
   final entries = image.listDirectory(cluster);
   for (final entry in entries) {
-    print('$indent${entry.isDirectory ? "[DIR] " : "      "}${entry.filename} (${entry.fileSize} bytes)');
+    String meta = '';
+    if (entry.filename == 'TitleMeta.xbx' || entry.filename == 'SaveMeta.xbx') {
+      meta = _extractMetaName(image, entry);
+    }
+
+    print('$indent${entry.isDirectory ? "[DIR] " : "      "}${entry.filename} ${meta != '' ? "('$meta' " : "("}${entry.fileSize} bytes)');
     if (entry.isDirectory && entry.firstCluster != 0) {
       _listRecursive(image, entry.firstCluster, '$indent  ');
     }
   }
+}
+
+String _extractMetaName(FatxImage image, FatxDirEntry entry) {
+  try {
+    final bytes = image.readChain(entry.firstCluster, entry.fileSize);
+    return XbxMeta.parseName(entry.filename, bytes) ?? '';
+  } catch (e) {
+    // Silently fail for malformed meta files
+  }
+  return '';
 }
 
 void handleImport(ArgResults results) {

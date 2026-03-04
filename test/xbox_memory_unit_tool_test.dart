@@ -151,6 +151,44 @@ void main() {
       _verifyXbxAttributes(image, 1);
     });
   });
+
+  group('XbxMeta Metadata Parsing', () {
+    test('Parse TitleMeta.xbx correctly (UTF-16 LE)', () {
+      final name = 'ESPN NFL 2K5';
+      final content = 'TitleName=$name\r\n';
+      final bytes = _createUtf16LeWithBom(content);
+      
+      final parsed = XbxMeta.parseName('TitleMeta.xbx', bytes);
+      expect(parsed, name);
+    });
+
+    test('Parse SaveMeta.xbx correctly (UTF-16 LE)', () {
+      final name = 'Roster1';
+      final content = 'Name=$name\r\n';
+      final bytes = _createUtf16LeWithBom(content);
+      
+      final parsed = XbxMeta.parseName('SaveMeta.xbx', bytes);
+      expect(parsed, name);
+    });
+
+    test('Return null for invalid/no BOM', () {
+      final bytes = Uint8List.fromList('Name=Test'.codeUnits);
+      expect(XbxMeta.parseName('SaveMeta.xbx', bytes), isNull);
+    });
+  });
+}
+
+Uint8List _createUtf16LeWithBom(String s) {
+  final units = s.codeUnits;
+  final bytes = Uint8List(2 + units.length * 2);
+  bytes[0] = 0xFF; // BOM
+  bytes[1] = 0xFE;
+  
+  for (var i = 0; i < units.length; i++) {
+    bytes[2 + i * 2] = units[i] & 0xFF;
+    bytes[2 + i * 2 + 1] = (units[i] >> 8) & 0xFF;
+  }
+  return bytes;
 }
 
 void _verifyXbxAttributes(FatxImage image, int cluster) {
