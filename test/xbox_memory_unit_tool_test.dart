@@ -176,6 +176,71 @@ void main() {
       expect(XbxMeta.parseName('SaveMeta.xbx', bytes), isNull);
     });
   });
+
+  group('FatxSearcher & Selective Export', () {
+    test('Resolve path by friendly names and perform selective export', () {
+      final buffer = FatxFormatter.format();
+      final image = FatxImage(buffer);
+      
+      // 1. Setup Game (ESPN NFL 2K5)
+      final gameCluster = image.fat.allocateCluster();
+      image.addEntry(1, FatxDirEntry()
+        ..filename = '53450030'
+        ..attributes = FatxDirEntry.attrDirectory
+        ..firstCluster = gameCluster);
+      
+      final titleMetaCluster = image.fat.allocateCluster();
+      image.addEntry(gameCluster, FatxDirEntry()
+        ..filename = 'TitleMeta.xbx'
+        ..fileSize = 50
+        ..firstCluster = titleMetaCluster);
+      
+      final titleMetaData = Uint8List(16384)..setRange(0, 50, _createUtf16LeWithBom('TitleName=ESPN NFL 2K5\r\n').sublist(0, 50));
+      image.writeCluster(titleMetaCluster, titleMetaData);
+
+      // 2. Setup Save (Roster1)
+      final saveCluster = image.fat.allocateCluster();
+      image.addEntry(gameCluster, FatxDirEntry()
+        ..filename = '19FA1AF775EF'
+        ..attributes = FatxDirEntry.attrDirectory
+        ..firstCluster = saveCluster);
+      
+      final saveMetaCluster = image.fat.allocateCluster();
+      image.addEntry(saveCluster, FatxDirEntry()
+        ..filename = 'SaveMeta.xbx'
+        ..fileSize = 30
+        ..firstCluster = saveMetaCluster);
+      
+      final saveMetaData = Uint8List(16384)..setRange(0, 30, _createUtf16LeWithBom('Name=Roster1\r\n').sublist(0, 30));
+      image.writeCluster(saveMetaCluster, saveMetaData);
+
+      // 3. Setup another save (Should be skipped in thick export)
+      final otherSaveCluster = image.fat.allocateCluster();
+      image.addEntry(gameCluster, FatxDirEntry()
+        ..filename = 'OTHER'
+        ..attributes = FatxDirEntry.attrDirectory
+        ..firstCluster = otherSaveCluster);
+
+      final searcher = FatxSearcher(image);
+      final exporter = FatxExporter(image);
+
+      // Search and Export
+      final result = searcher.resolvePath('ESPN NFL 2K5/Roster1');
+      expect(result.gameCluster, gameCluster);
+      expect(result.saveCluster, saveCluster);
+      expect(result.gameName, 'ESPN NFL 2K5');
+
+      final zipBytes = exporter.exportGameOrSave(result);
+      final zip = ZipDecoder().decodeBytes(zipBytes);
+
+      // Check context preservation
+      expect(zip.files.any((f) => f.name == 'UDATA/53450030/TitleMeta.xbx'), isTrue);
+      expect(zip.files.any((f) => f.name == 'UDATA/53450030/19FA1AF775EF/SaveMeta.xbx'), isTrue);
+      
+      // Verify "OTHER" save folder was excluded
+      expect(zip.files.any((f) => f.name.contains('OTHER')), isFalse);
+    });
+  });
 }
 
 Uint8List _createUtf16LeWithBom(String s) {

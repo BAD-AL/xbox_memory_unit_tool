@@ -43,11 +43,20 @@ void main(List<String> arguments) {
 
 void printUsage(ArgParser parser) {
   print('Usage: xbmut <command> [arguments]');
+  print('');
   print('Commands:');
   print('  ls <image_path> [dir_path]           List files recursively starting at <dir_path>');
   print('  import <image_path> <zip_path>       Import a save ZIP');
-  print('  export <image_path> <src_dir> <zip>  Export a directory to ZIP');
+  print('  export <image_path> <path> [zip]     Export a directory to ZIP (Supports name-based paths)');
   print('  format <image_path>                  Produce a formatted 8MB image file');
+  print('');
+  print('Examples:');
+  print('  xbmut format card.bin                Create a fresh 8MB memory unit');
+  print('  xbmut ls card.bin                    List all games and saves');
+  print('  xbmut import card.bin MySave.zip     Import a save (strips UDATA/ prefix)');
+  print('  xbmut export card.bin "NFL 2K5"      Export all game saves to "NFL 2K5.zip"');
+  print('  xbmut export card.bin "NFL 2K5/R1"   Export specific save to "R1.zip"');
+  print('  xbmut export card.bin 53450030/19FA  Export by literal IDs');
 }
 
 void handleFormat(ArgResults results) {
@@ -155,14 +164,22 @@ void handleImport(ArgResults results) {
 }
 
 void handleExport(ArgResults results) {
-  if (results.rest.length < 3) {
-    print('Usage: xbmut export <image_path> <src_dir> <zip>');
+  if (results.rest.length < 2) {
+    print('Usage: xbmut export <image_path> <search_path> [zip_path]');
     return;
   }
 
   final imagePath = results.rest[0];
-  final srcDir = results.rest[1];
-  final zipPath = results.rest[2];
+  final searchPath = results.rest[1];
+  
+  // Infer ZIP path if not provided
+  String zipPath;
+  if (results.rest.length > 2) {
+    zipPath = results.rest[2];
+  } else {
+    final parts = searchPath.split('/').where((p) => p.isNotEmpty);
+    zipPath = '${parts.last}.zip';
+  }
 
   if (!File(imagePath).existsSync()) {
     print('Error: File $imagePath does not exist.');
@@ -171,15 +188,20 @@ void handleExport(ArgResults results) {
 
   final bytes = File(imagePath).readAsBytesSync();
   final image = FatxImage(bytes);
+  final searcher = FatxSearcher(image);
   final exporter = FatxExporter(image);
 
-  // For now, assume srcDir is in the root. Find it.
-  final entries = image.listDirectory(1);
-  final target = entries.firstWhere((e) => e.filename == srcDir && e.isDirectory,
-      orElse: () => throw Exception('Directory $srcDir not found in image root.'));
-
-  print('Exporting $srcDir to $zipPath...');
-  final zipBytes = exporter.exportToZip(target.firstCluster, '$srcDir/');
-  File(zipPath).writeAsBytesSync(zipBytes);
-  print('Done.');
+  try {
+    print('Searching for $searchPath...');
+    final result = searcher.resolvePath(searchPath);
+    
+    final targetDesc = result.saveName != null ? '${result.gameName}/${result.saveName}' : result.gameName;
+    print('Exporting $targetDesc to $zipPath...');
+    
+    final zipBytes = exporter.exportGameOrSave(result);
+    File(zipPath).writeAsBytesSync(zipBytes);
+    print('Done.');
+  } catch (e) {
+    print('Error: ${e.toString()}');
+  }
 }
