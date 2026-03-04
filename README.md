@@ -83,7 +83,7 @@ for (XboxTitle title in mu.titles) {
 }
 ```
 
-### 4. Exporting a Specific Save (Thick Export)
+### 4. Exporting a Specific Save
 ```dart
 // Export by friendly path: "Game Name/Save Name"
 Uint8List zipBytes = mu.export("ESPN NFL 2K5/Roster1");
@@ -110,4 +110,6 @@ if (title != null && title.titleImage != null) {
 - **Encoding**: All multi-byte integers are Little-Endian. Metadata files (`.xbx`) use UTF-16 LE with BOM.
 
 ---
-Written with gemini cli, check specification folder for initial specification used.
+Written with gemini cli, check specification folder for initial specification used. 
+
+Specification written after inspection of memory units created by XEMU and looking at project: https://github.com/mborgerson/fatx 
