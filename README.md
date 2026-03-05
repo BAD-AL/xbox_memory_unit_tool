@@ -110,6 +110,18 @@ if (title != null && title.titleImage != null) {
 - **Encoding**: All multi-byte integers are Little-Endian. Metadata files (`.xbx`) use UTF-16 LE with BOM.
 
 ---
+```bash
+# To read contents of a memory Unit (Linux).
+# list the block devices to find the correct one (check SIZE to figure out which device it is)
+lsblk
+
+# copy the (in this case '/dev/sdd') image to file 'MEMORY_UNIT.bin'
+sudo dd if=/dev/sdd of=MEMORY_UNIT_dump.bin bs=1M 
+
+# lsit the contents of 'MEMORY_UNIT.bin' with xbmut 
+xbmut ls MEMORY_UNIT.bin 
+````
+---
 Written with gemini cli, check specification folder for initial specification used. 
 
 Specification written after inspection of memory units created by XEMU and looking at project: https://github.com/mborgerson/fatx 

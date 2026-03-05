@@ -81,8 +81,18 @@ class XboxMemoryUnit {
     }
   }
 
+  /// Exports the entire memory unit content to a ZIP (prepends UDATA/).
+  Uint8List exportAll() {
+    final exporter = FatxExporter(_image);
+    return exporter.exportToZip(1, "");
+  }
+
   /// Exports a specific game or save by friendly path (e.g., "NFL 2K5/Roster1").
+  /// Use "all" to export everything.
   Uint8List export(String path) {
+    if (path.toLowerCase() == 'all') {
+      return exportAll();
+    }
     final searcher = FatxSearcher(_image);
     final result = searcher.resolvePath(path);
     final exporter = FatxExporter(_image);

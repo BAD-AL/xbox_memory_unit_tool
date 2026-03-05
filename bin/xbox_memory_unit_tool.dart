@@ -78,8 +78,10 @@ void printUsage(ArgParser parser) {
   print('');
   print('Examples:');
   print('  xbmut ls card.bin                    List all games and saves');
-  print('  sudo cat /dev/sdc | xbmut ls -       List contents of physical drive');
+  print('  sudo cat /dev/sdc | ./xbmut ls -       List contents of physical drive');
   print('  xbmut import card.bin MySave.zip     Import a save');
+  print('  xbmut export card.bin "NFL 2K5"      Export all game saves to "NFL 2K5.zip"');
+  print('  xbmut export card.bin all            Export entire card to "all.zip"');
   print('  xbmut rm card.bin "NFL 2K5/R1"       Delete specific save');
 }
 
