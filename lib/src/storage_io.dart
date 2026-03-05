@@ -10,8 +10,9 @@ class FileStorage implements FatxStorage {
   FileStorage(this._file, this._length);
 
   factory FileStorage.open(File file, {bool writeAccess = true}) {
-    // Note: FileMode.read allows seeking and reading. 
-    // FileMode.append is used for R/W without truncation, though it has limitations on some OSs.
+    // FileMode.read is standard O_RDONLY.
+    // FileMode.append is O_RDWR | O_APPEND | O_CREAT. 
+    // Some block devices reject O_APPEND or O_CREAT.
     final mode = writeAccess ? FileMode.append : FileMode.read;
     final raf = file.openSync(mode: mode);
     try {
