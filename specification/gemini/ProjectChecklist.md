@@ -25,6 +25,9 @@
     - [x] Verify robustness with `test/robustness_test.dart`.
     - [x] Implement recursive deletion (`rm` command) and FAT chain freeing.
     - [x] Implement `FatxStorage` abstraction (Memory vs File/Device).
-    - [x] Support raw device access via `RandomAccessFile` (efficient seeking).
+    - [x] Support raw device access via `RandomAccessFile` and `stdin` pipe.
+    - [x] Implement size and timestamp reporting in `ls`.
+    - [x] Implement full card export (`export all`).
+    - [x] Verify ARMAX (8192000 byte) image support.
 
 *Status: Completed*

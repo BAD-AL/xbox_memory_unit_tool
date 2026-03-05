@@ -5,7 +5,9 @@ import 'package:xbox_memory_unit_tool/xbox_memory_unit_tool.dart';
 
 void main(List<String> arguments) async {
   final parser = ArgParser()
-    ..addCommand('ls')
+    ..addCommand('ls', ArgParser()
+      ..addFlag('size', abbr: 's', help: 'Show sizes of games and saves', negatable: false)
+      ..addFlag('time', abbr: 't', help: 'Show modification times', negatable: false))
     ..addCommand('import')
     ..addCommand('export')
     ..addCommand('rm')
@@ -74,15 +76,17 @@ void printUsage(ArgParser parser) {
   print('  rm <image_path> <path>               Delete a game or save by friendly path');
   print('  format <image_path>                  Produce a formatted 8MB image file');
   print('');
+  print('Options for "ls":');
+  print('  -s, --size                           Show sizes');
+  print('  -t, --time                           Show modification times');
+  print('');
   print('Note: Use "-" for <image_path> to read from stdin (ls/export only).');
   print('');
   print('Examples:');
   print('  xbmut ls card.bin                    List all games and saves');
-  print('  sudo cat /dev/sdc | ./xbmut ls -       List contents of physical drive');
-  print('  xbmut import card.bin MySave.zip     Import a save');
-  print('  xbmut export card.bin "NFL 2K5"      Export all game saves to "NFL 2K5.zip"');
+  print('  xbmut ls card.bin --size --time      List with detailed info');
+  print('  sudo cat /dev/sdc | xbmut ls -       List contents of physical drive');
   print('  xbmut export card.bin all            Export entire card to "all.zip"');
-  print('  xbmut rm card.bin "NFL 2K5/R1"       Delete specific save');
 }
 
 Future<XboxMemoryUnit> _loadMU(String path, {bool writeAccess = false}) async {
@@ -139,15 +143,40 @@ Future<void> handleLs(ArgResults results) async {
   }
 
   final imagePath = results.rest[0];
+  final showSize = results['size'] as bool;
+  final showTime = results['time'] as bool;
   final mu = await _loadMU(imagePath, writeAccess: false);
 
   print('Listing contents...');
   for (final title in mu.titles) {
-    print('Game: ${title.name} (${title.id})');
+    final sizeStr = showSize ? " [${_formatSize(title.size)}]" : "";
+    final timeStr = showTime ? " [${_formatTime(title.modifiedAt)}]" : "";
+    print('Game: ${title.name} (${title.id})$sizeStr$timeStr');
+    
     for (final save in title.saves) {
-      print('  - Save: ${save.name} (${save.folderName})');
+      final sSizeStr = showSize ? " [${_formatSize(save.size)}]" : "";
+      final sTimeStr = showTime ? " [${_formatTime(save.modifiedAt)}]" : "";
+      print('  - Save: ${save.name} (${save.folderName})$sSizeStr$sTimeStr');
     }
   }
+  
+  print('\nFree Space: ${_formatSize(mu.freeBytes)} / ${_formatSize(mu.totalBytes)}');
+}
+
+String _formatSize(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+}
+
+String _formatTime(DateTime dt) {
+  final y = dt.year.toString().padLeft(4, '0');
+  final m = dt.month.toString().padLeft(2, '0');
+  final d = dt.day.toString().padLeft(2, '0');
+  final h = dt.hour.toString().padLeft(2, '0');
+  final min = dt.minute.toString().padLeft(2, '0');
+  final s = dt.second.toString().padLeft(2, '0');
+  return '$y-$m-$d $h:$min:$s';
 }
 
 Future<void> handleImport(ArgResults results) async {

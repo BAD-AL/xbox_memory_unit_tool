@@ -40,8 +40,9 @@ class FatxTable {
 
   /// Finds the next free cluster (starting from index 2).
   int allocateCluster() {
-    // Total clusters = StorageSize / ClusterSize
-    final maxClusters = (storage.length / FatxConfig.clusterSizeReal).floor();
+    // Total clusters = (StorageSize - DataOffset) / ClusterSize
+    final usableBytes = storage.length - FatxConfig.dataOffset;
+    final maxClusters = (usableBytes / FatxConfig.clusterSizeReal).floor();
     
     // Safety: The 4KB FAT can hold at most 2048 entries. 
     final limit = maxClusters > 2048 ? 2048 : maxClusters;
@@ -53,6 +54,21 @@ class FatxTable {
       }
     }
     throw Exception('Disk full');
+  }
+
+  /// Counts the number of clusters marked as free (0x0000).
+  int countFreeClusters() {
+    final usableBytes = storage.length - FatxConfig.dataOffset;
+    final maxClusters = (usableBytes / FatxConfig.clusterSizeReal).floor();
+    final limit = maxClusters > 2048 ? 2048 : maxClusters;
+    
+    var count = 0;
+    for (var i = 2; i <= limit; i++) {
+      if (getEntry(i) == 0x0000) {
+        count++;
+      }
+    }
+    return count;
   }
 
   /// Frees a cluster chain starting from [startCluster].
@@ -81,7 +97,23 @@ class FatxTimeUtils {
     return (dt.hour & 0x1F) << 11 | (dt.minute & 0x3F) << 5 | (dt.second ~/ 2 & 0x1F);
   }
 
-  // TODO: Implement unpackDate/Time if needed for ls/export.
+  /// Unpacks a 16-bit FATX date and time into a DateTime object.
+  static DateTime unpack(int date, int time) {
+    final day = date & 0x1F;
+    final month = (date >> 5) & 0x0F;
+    final year = ((date >> 9) & 0x7F) + 2000;
+
+    final sec = (time & 0x1F) * 2;
+    final min = (time >> 5) & 0x3F;
+    final hour = (time >> 11) & 0x1F;
+
+    // Safety check for invalid dates (common in corrupted/empty entries)
+    if (month < 1 || month > 12 || day < 1 || day > 31) {
+      return DateTime(2000, 1, 1);
+    }
+
+    return DateTime(year, month, day, hour, min, sec);
+  }
 }
 
 /// Hybrid cluster mapping logic.
@@ -119,6 +151,10 @@ class FatxDirEntry {
   bool get isDirectory => (attributes & attrDirectory) != 0;
   bool get isDeleted => filenameLength == deletedMarker;
   bool get isEnd => filenameLength == 0x00 || filenameLength == 0xFF;
+
+  DateTime get modifiedAt => FatxTimeUtils.unpack(modificationDate, modificationTime);
+  DateTime get createdAt => FatxTimeUtils.unpack(creationDate, creationTime);
+  DateTime get accessedAt => FatxTimeUtils.unpack(accessDate, accessTime);
 
   FatxDirEntry();
 

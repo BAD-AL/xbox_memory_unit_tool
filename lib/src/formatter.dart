@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 import 'fatx.dart';
-import 'storage.dart';
 
 class FatxFormatter {
   /// Formats an 8MB buffer as an Xbox FATX Memory Unit.
@@ -35,14 +34,13 @@ class FatxFormatter {
     view.setUint16(16, 0x0000, Endian.little);
 
     // 2. Initialize FAT (4KB at 0x1000)
-    // Area is already 0x00 from Uint8List() initialization.
-    final storage = MemoryStorage(buffer);
-    final table = FatxTable(storage);
-    table.initialize();
-    table.setEntry(1, 0xFFFF); // Root Directory (Cluster 1) is end of chain
+    // Offset 0x1000: Media Byte (0xFFF8 in little-endian is [F8, FF])
+    view.setUint16(FatxConfig.fatOffset + 0, 0xFFF8, Endian.little);
+    
+    // Offset 0x1002: Root Directory (Cluster 1) is end of chain (0xFFFF)
+    view.setUint16(FatxConfig.fatOffset + 2, 0xFFFF, Endian.little);
 
-    // 3. Initialize Data Area (TR-4: Zero initialized)
-    // Already zeroed by Uint8List(FatxConfig.muSize)
+    // 3. Data Area starts at 0x2000 (already 0xFF padded)
 
     return buffer;
   }

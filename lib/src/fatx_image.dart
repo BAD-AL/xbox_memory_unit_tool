@@ -149,4 +149,19 @@ class FatxImage {
     }
     throw Exception('Entry not found: $filename');
   }
+
+  /// Recursively calculates the total size of all files in a directory.
+  int calculateDirectorySize(int cluster) {
+    if (cluster == 0) return 0;
+    var total = 0;
+    final entries = listDirectory(cluster);
+    for (final entry in entries) {
+      if (entry.isDirectory) {
+        total += calculateDirectorySize(entry.firstCluster);
+      } else {
+        total += entry.fileSize;
+      }
+    }
+    return total;
+  }
 }

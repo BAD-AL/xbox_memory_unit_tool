@@ -48,6 +48,12 @@ class XboxMemoryUnit {
     _image.storage.flush();
   }
 
+  /// Returns the number of free bytes available.
+  int get freeBytes => _image.fat.countFreeClusters() * FatxConfig.clusterSizeReal;
+
+  /// Returns the total capacity of the storage in bytes.
+  int get totalBytes => _image.storage.length;
+
   /// Returns a list of all games/titles on the memory unit.
   List<XboxTitle> get titles {
     final entries = _image.listDirectory(1); // Root
@@ -121,6 +127,12 @@ class XboxTitle {
 
   String get id => _entry.filename;
 
+  /// Total size of all files in this title (including all saves).
+  int get size => _mu._image.calculateDirectorySize(_entry.firstCluster);
+
+  /// Last modification time of this title folder.
+  DateTime get modifiedAt => _entry.modifiedAt;
+
   /// Returns a list of all saves belonging to this title.
   List<XboxSave> get saves {
     final entries = _mu._image.listDirectory(_entry.firstCluster);
@@ -155,6 +167,12 @@ class XboxSave {
   }
 
   String get folderName => _entry.filename;
+
+  /// Total size of all files in this specific save.
+  int get size => parent._mu._image.calculateDirectorySize(_entry.firstCluster);
+
+  /// Last modification time of this specific save.
+  DateTime get modifiedAt => _entry.modifiedAt;
 
   /// Returns the SaveImage.xbx bytes, if present (checks save folder then parent title folder).
   Uint8List? get saveImage => _readFile('SaveImage.xbx') ?? parent._readFile('SaveImage.xbx');
