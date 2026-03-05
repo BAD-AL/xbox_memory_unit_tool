@@ -125,18 +125,16 @@ void handleLs(ArgResults results) {
     return;
   }
 
-  final imagePath = results.rest[0];
   final file = File(imagePath);
-
   if (!file.existsSync()) {
-    print('Error: File $imagePath does not exist.');
+    print('Error: File ${file.absolute.path} does not exist.');
     return;
   }
 
   // Use fromFile to avoid loading entire image into RAM
   final mu = XboxMemoryUnit.fromFile(file, writeAccess: false);
 
-  print('Listing $imagePath...');
+  print('Listing ${file.absolute.path}...');
   for (final title in mu.titles) {
     print('Game: ${title.name} (${title.id})');
     for (final save in title.saves) {
