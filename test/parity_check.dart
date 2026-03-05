@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:xbox_memory_unit_tool/xbox_memory_unit_tool.dart';
 
 void main(List<String> args) {
   if (args.length != 2) {
@@ -23,8 +24,9 @@ void main(List<String> args) {
     b2[i] = 0;
   }
 
-  // TODO: Zero-out Timestamps in directory entries if comparing non-blank cards
-  // (Not needed for blank cards)
+  // Zero-out Timestamps in directory entries (offsets 52-63 in each 64-byte entry)
+  _zeroTimestamps(b1);
+  _zeroTimestamps(b2);
 
   for (var i = 0; i < b1.length; i++) {
     if (b1[i] != b2[i]) {
@@ -36,4 +38,37 @@ void main(List<String> args) {
   }
 
   print('PASS');
+}
+
+void _zeroTimestamps(Uint8List bytes) {
+  final image = FatxImage(bytes);
+  _zeroDirRecursive(image, 1);
+}
+
+void _zeroDirRecursive(FatxImage image, int cluster) {
+  final chain = image.getClusterChain(cluster);
+  for (final c in chain) {
+    final offset = FatxMapper.clusterToOffset(c);
+    for (var i = 0; i < FatxConfig.clusterSizeReal; i += 64) {
+      final entryOffset = offset + i;
+      final filenameLen = image.bytes[entryOffset];
+      
+      if (filenameLen == 0x00 || filenameLen == 0xFF) break;
+      if (filenameLen == 0xE5) continue; // Deleted
+
+      // Attributes at +1
+      final attributes = image.bytes[entryOffset + 1];
+      final isDirectory = (attributes & 0x10) != 0;
+      final firstCluster = ByteData.sublistView(image.bytes, entryOffset + 44, entryOffset + 48).getUint32(0, Endian.little);
+
+      // Zero-out timestamps (offsets 52 to 63)
+      for (var t = 52; t < 64; t++) {
+        image.bytes[entryOffset + t] = 0;
+      }
+
+      if (isDirectory && firstCluster != 0) {
+        _zeroDirRecursive(image, firstCluster);
+      }
+    }
+  }
 }
