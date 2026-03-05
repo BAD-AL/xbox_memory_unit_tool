@@ -36,7 +36,7 @@ class FatxFormatter {
     // 2. Initialize FAT (4KB at 0x1000)
     // Area is already 0x00 from Uint8List() initialization.
     final fatBytes = Uint8List.sublistView(buffer, FatxConfig.fatOffset, FatxConfig.fatOffset + 4096);
-    final table = FatxTable(fatBytes);
+    final table = FatxTable(fatBytes, buffer.length);
     table.initialize();
     table.setEntry(1, 0xFFFF); // Root Directory (Cluster 1) is end of chain
 
