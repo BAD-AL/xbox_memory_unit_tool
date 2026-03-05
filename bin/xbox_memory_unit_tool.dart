@@ -125,6 +125,7 @@ void handleLs(ArgResults results) {
     return;
   }
 
+  final imagePath = results.rest[0];
   final file = File(imagePath);
   if (!file.existsSync()) {
     print('Error: File ${file.absolute.path} does not exist.');
