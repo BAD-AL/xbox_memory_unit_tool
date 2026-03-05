@@ -174,6 +174,18 @@ class XboxSave {
   /// Last modification time of this specific save.
   DateTime get modifiedAt => _entry.modifiedAt;
 
+  /// Exports this specific save to a ZIP buffer (Thick Export with Game context).
+  Uint8List exportZip() {
+    final result = FatxSearchResult(
+      gameCluster: parent._entry.firstCluster,
+      saveCluster: _entry.firstCluster,
+      gameName: parent.name,
+      saveName: name,
+    );
+    final exporter = FatxExporter(parent._mu._image);
+    return exporter.exportGameOrSave(result);
+  }
+
   /// Returns the SaveImage.xbx bytes, if present (checks save folder then parent title folder).
   Uint8List? get saveImage => _readFile('SaveImage.xbx') ?? parent._readFile('SaveImage.xbx');
 

@@ -107,5 +107,21 @@ void main() {
       
       expect(title.saves.first.saveImage, isNotNull);
     });
+
+    test('6. Individual Save Export (XboxSave.exportZip)', () {
+      Uint8List bytes = File('test/test_files/XEMU_Created_default_roster.bin').readAsBytesSync();
+      XboxMemoryUnit mu = XboxMemoryUnit.fromBytes(bytes);
+
+      final title = mu.titles.first;
+      final save = title.saves.first;
+      
+      Uint8List zipBytes = save.exportZip();
+      expect(zipBytes, isNotEmpty);
+      
+      Archive archive = ZipDecoder().decodeBytes(zipBytes);
+      // Should have game context
+      expect(archive.files.any((f) => f.name.contains('TitleMeta.xbx')), isTrue);
+      expect(archive.files.any((f) => f.name.contains(save.folderName)), isTrue);
+    });
   });
 }

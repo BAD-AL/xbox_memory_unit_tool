@@ -87,6 +87,11 @@ void printUsage(ArgParser parser) {
   print('  xbmut ls card.bin --size --time      List with detailed info');
   print('  sudo cat /dev/sdc | xbmut ls -       List contents of physical drive');
   print('  xbmut export card.bin all            Export entire card to "all.zip"');
+  print('  xbmut export card.bin 55530004       Export Game folder to "55530004.zip"');
+  print('  xbmut export card.bin Deathrow       Export all Deathrow saves to "Deathrow.zip"');
+  print('  xbmut export card.bin "54540003/8DD53EC93D8B"     Export save to 8DD53EC93D8B.zip');
+  print('  xbmut export card.bin "ESPN NFL 2K5/2K26Fran"   Export save to 2K26Fran.zip');
+  print('  xbmut export card.bin all-individual ./out/  Batch export each save');
 }
 
 Future<XboxMemoryUnit> _loadMU(String path, {bool writeAccess = false}) async {
@@ -204,13 +209,34 @@ Future<void> handleImport(ArgResults results) async {
 
 Future<void> handleExport(ArgResults results) async {
   if (results.rest.length < 2) {
-    print('Usage: xbmut export <image_path> <search_path> [zip_path]');
+    print('Usage: xbmut export <image_path> <search_path> [zip_path/out_dir]');
     return;
   }
 
   final imagePath = results.rest[0];
   final searchPath = results.rest[1];
-  
+  final mu = await _loadMU(imagePath, writeAccess: false);
+
+  if (searchPath.toLowerCase() == 'all-individual') {
+    final outDir = Directory(results.rest.length > 2 ? results.rest[2] : '.');
+    if (!outDir.existsSync()) outDir.createSync(recursive: true);
+
+    print('Batch exporting all saves to individual ZIPs in ${outDir.path}...');
+    var count = 0;
+    for (final title in mu.titles) {
+      for (final save in title.saves) {
+        final filename = _sanitizeFilename('${title.name}.${save.name}.zip');
+        final path = '${outDir.path}/$filename';
+        print('  Exporting: $filename');
+        File(path).writeAsBytesSync(save.exportZip());
+        count++;
+      }
+    }
+    print('\nDone. Exported $count saves.');
+    return;
+  }
+
+  // Single export
   String zipPath;
   if (results.rest.length > 2) {
     zipPath = results.rest[2];
@@ -219,11 +245,13 @@ Future<void> handleExport(ArgResults results) async {
     zipPath = '${parts.last}.zip';
   }
 
-  final mu = await _loadMU(imagePath, writeAccess: false);
-
   print('Searching for $searchPath...');
   final zipBytes = mu.export(searchPath);
   print('Exporting to $zipPath...');
   File(zipPath).writeAsBytesSync(zipBytes);
   print('Done.');
+}
+
+String _sanitizeFilename(String name) {
+  return name.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
 }

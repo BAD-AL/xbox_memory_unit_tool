@@ -28,7 +28,8 @@ dart compile exe bin/xbox_memory_unit_tool.dart -o xbmut
 - `import <image_path> <zip_path>`: Import a save ZIP.
 - `export <image_path> <path> [zip_path]`: Export content to ZIP.
     - Use `<path>` like `"Game Name/Save Name"` for selective export.
-    - Use `all` as `<path>` to export the entire card.
+    - Use `all` as `<path>` to export the entire card as one ZIP.
+    - Use `all-individual` as `<path>` to export every save to its own ZIP.
 - `rm <image_path> <path>`: Delete a game or save by friendly path.
 
 ### Examples
@@ -37,6 +38,7 @@ dart compile exe bin/xbox_memory_unit_tool.dart -o xbmut
 - **Import a save**: `xbmut import card.bin MySave.zip`
 - **Export selective**: `xbmut export card.bin "NFL 2K5/Roster1"`
 - **Full backup**: `xbmut export card.bin all backup.zip`
+- **Batch export**: `xbmut export card.bin all-individual ./my_saves/`
 - **Delete a save**: `xbmut rm card.bin "NFL 2K5/Roster1"`
 
 ---
