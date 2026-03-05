@@ -96,9 +96,11 @@ class FatxImporter {
       
       final chunk = Uint8List(FatxConfig.clusterSizeReal);
       if (end > data.length) {
-        chunk.setRange(0, data.length - start, data.sublist(start));
+          final sub = data.sublist(start);
+          chunk.setRange(0, sub.length, sub);
       } else {
-        chunk.setRange(0, FatxConfig.clusterSizeReal, data.sublist(start, end));
+          final sub = data.sublist(start, end);
+          chunk.setRange(0, FatxConfig.clusterSizeReal, sub);
       }
       image.writeCluster(clusters[i], chunk);
     }

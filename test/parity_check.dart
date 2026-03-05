@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:xbox_memory_unit_tool/xbox_memory_unit_tool.dart';
+import 'package:xbox_memory_unit_tool/src/storage.dart';
 
 void main(List<String> args) {
   if (args.length != 2) {
@@ -41,7 +42,8 @@ void main(List<String> args) {
 }
 
 void _zeroTimestamps(Uint8List bytes) {
-  final image = FatxImage(bytes);
+  final storage = MemoryStorage(bytes);
+  final image = FatxImage(storage);
   _zeroDirRecursive(image, 1);
 }
 
@@ -49,22 +51,25 @@ void _zeroDirRecursive(FatxImage image, int cluster) {
   final chain = image.getClusterChain(cluster);
   for (final c in chain) {
     final offset = FatxMapper.clusterToOffset(c);
+    final clusterData = image.storage.read(offset, FatxConfig.clusterSizeReal);
+    
     for (var i = 0; i < FatxConfig.clusterSizeReal; i += 64) {
       final entryOffset = offset + i;
-      final filenameLen = image.bytes[entryOffset];
+      final filenameLen = clusterData[i];
       
       if (filenameLen == 0x00 || filenameLen == 0xFF) break;
       if (filenameLen == 0xE5) continue; // Deleted
 
       // Attributes at +1
-      final attributes = image.bytes[entryOffset + 1];
+      final attributes = clusterData[i + 1];
       final isDirectory = (attributes & 0x10) != 0;
-      final firstCluster = ByteData.sublistView(image.bytes, entryOffset + 44, entryOffset + 48).getUint32(0, Endian.little);
+      
+      final view = ByteData.sublistView(clusterData, i + 44, i + 48);
+      final firstCluster = view.getUint32(0, Endian.little);
 
       // Zero-out timestamps (offsets 52 to 63)
-      for (var t = 52; t < 64; t++) {
-        image.bytes[entryOffset + t] = 0;
-      }
+      final zeroTs = Uint8List(12); // All zeros
+      image.storage.write(entryOffset + 52, zeroTs);
 
       if (isDirectory && firstCluster != 0) {
         _zeroDirRecursive(image, firstCluster);

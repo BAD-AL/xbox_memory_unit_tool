@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'fatx.dart';
 import 'fatx_image.dart';
@@ -7,6 +8,8 @@ import 'exporter.dart';
 import 'searcher.dart';
 import 'xbx_meta.dart';
 import 'models.dart';
+import 'storage.dart';
+import 'storage_io.dart';
 
 // High-level API types
 
@@ -15,19 +18,35 @@ class XboxMemoryUnit {
 
   XboxMemoryUnit._(this._image);
 
-  /// Formats a new 8MB Xbox Memory Unit.
+  /// Formats a new 8MB Xbox Memory Unit in memory.
   factory XboxMemoryUnit.format() {
     final buffer = FatxFormatter.format();
-    return XboxMemoryUnit._(FatxImage(buffer));
+    return XboxMemoryUnit._(FatxImage(MemoryStorage(buffer)));
   }
 
-  /// Loads an Xbox Memory Unit from an 8MB buffer.
+  /// Loads an Xbox Memory Unit from an in-memory buffer.
   factory XboxMemoryUnit.fromBytes(Uint8List bytes) {
-    return XboxMemoryUnit._(FatxImage(bytes));
+    return XboxMemoryUnit._(FatxImage(MemoryStorage(bytes)));
   }
 
-  /// Returns the raw 8MB buffer.
-  Uint8List get bytes => _image.bytes;
+  /// Opens an Xbox Memory Unit from a physical file or device.
+  factory XboxMemoryUnit.fromFile(File file, {bool writeAccess = true}) {
+    final storage = FileStorage.open(file, writeAccess: writeAccess);
+    return XboxMemoryUnit._(FatxImage(storage));
+  }
+
+  /// Returns the raw bytes (only works for memory-based storage).
+  Uint8List get bytes {
+    if (_image.storage is MemoryStorage) {
+      return (_image.storage as MemoryStorage).bytes;
+    }
+    throw UnsupportedError('Raw bytes access is not supported for file-based storage.');
+  }
+
+  /// Flushes any pending writes to the underlying storage.
+  void flush() {
+    _image.storage.flush();
+  }
 
   /// Returns a list of all games/titles on the memory unit.
   List<XboxTitle> get titles {
@@ -42,6 +61,24 @@ class XboxMemoryUnit {
   void importZip(Uint8List zipBytes) {
     final importer = FatxImporter(_image);
     importer.importZip(zipBytes);
+  }
+
+  /// Deletes a game or save by friendly path (e.g., "NFL 2K5/Roster1").
+  void delete(String path) {
+    final searcher = FatxSearcher(_image);
+    final result = searcher.resolvePath(path);
+
+    if (result.saveCluster != null) {
+      // Delete specific save folder inside the game folder
+      final gameEntries = _image.listDirectory(result.gameCluster);
+      final saveFolder = gameEntries.firstWhere((e) => e.firstCluster == result.saveCluster).filename;
+      _image.deleteEntry(result.gameCluster, saveFolder);
+    } else {
+      // Delete the entire game folder from root
+      final rootEntries = _image.listDirectory(1);
+      final gameFolder = rootEntries.firstWhere((e) => e.firstCluster == result.gameCluster).filename;
+      _image.deleteEntry(1, gameFolder);
+    }
   }
 
   /// Exports a specific game or save by friendly path (e.g., "NFL 2K5/Roster1").

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:xbox_memory_unit_tool/xbox_memory_unit_tool.dart';
+import 'package:xbox_memory_unit_tool/src/storage.dart';
 import 'package:test/test.dart';
 import 'package:archive/archive.dart';
 
@@ -42,7 +43,7 @@ void main() {
   group('Import & Normalization (TR-6, TR-8, TR-9, TR-10)', () {
     test('TR-6 & TR-8: Path Normalization & Hidden Attribute', () {
       final buffer = FatxFormatter.format();
-      final image = FatxImage(buffer);
+      final image = FatxImage(MemoryStorage(buffer));
       final importer = FatxImporter(image);
 
       // Create a ZIP with UDATA/ prefix and .xbx file
@@ -69,7 +70,7 @@ void main() {
 
     test('TR-9: Reject Filenames > 42 chars', () {
       final buffer = FatxFormatter.format();
-      final image = FatxImage(buffer);
+      final image = FatxImage(MemoryStorage(buffer));
       final importer = FatxImporter(image);
       final longName = 'A' * 43;
 
@@ -82,7 +83,7 @@ void main() {
 
     test('TR-10: FAT16 Chaining (> 16KB)', () {
       final buffer = FatxFormatter.format();
-      final image = FatxImage(buffer);
+      final image = FatxImage(MemoryStorage(buffer));
       final importer = FatxImporter(image);
 
       // Create a file larger than 16KB (e.g., 20KB)
@@ -112,7 +113,7 @@ void main() {
   group('Export (TR-7)', () {
     test('TR-7: ZIP Compatibility (Prepend UDATA/)', () {
       final buffer = FatxFormatter.format();
-      final image = FatxImage(buffer);
+      final image = FatxImage(MemoryStorage(buffer));
       
       // Manually add a file
       final dirCluster = image.fat.allocateCluster();
@@ -143,7 +144,7 @@ void main() {
       final zipBytes = File(zipPath).readAsBytesSync();
       
       final buffer = FatxFormatter.format();
-      final image = FatxImage(buffer);
+      final image = FatxImage(MemoryStorage(buffer));
       final importer = FatxImporter(image);
 
       importer.importZip(zipBytes);
@@ -180,7 +181,7 @@ void main() {
   group('FatxSearcher & Selective Export', () {
     test('Resolve path by friendly names and perform selective export', () {
       final buffer = FatxFormatter.format();
-      final image = FatxImage(buffer);
+      final image = FatxImage(MemoryStorage(buffer));
       
       // 1. Setup Game (ESPN NFL 2K5)
       final gameCluster = image.fat.allocateCluster();

@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'storage.dart';
 
 /// Xbox FATX constants for an 8MB Memory Unit (MU).
 class FatxConfig {
@@ -14,41 +15,35 @@ class FatxConfig {
 
 /// File Allocation Table (FAT16) management.
 class FatxTable {
-  final Uint8List _bytes;
-  final int imageSizeBytes;
+  final FatxStorage storage;
   static const int fatEntrySize = 2; // Uint16
 
-  FatxTable(this._bytes, this.imageSizeBytes) {
-    if (_bytes.length != 4096) throw ArgumentError('FAT area must be 4KB');
-  }
+  FatxTable(this.storage);
 
   /// Sets Entry 0 to Media Byte 0xF8FF.
   void initialize() {
-    final view = ByteData.sublistView(_bytes);
-    // Spec says 0xF8FF, but XEMU_Blank_card.bin shows bytes [F8, FF]
-    // which is 0xFFF8 in little-endian.
-    view.setUint16(0, 0xFFF8, Endian.little);
+    setEntry(0, 0xFFF8); // Little-endian [F8, FF]
   }
 
   int getEntry(int index) {
-    final view = ByteData.sublistView(_bytes);
-    return view.getUint16(index * fatEntrySize, Endian.little);
+    final bytes = storage.read(FatxConfig.fatOffset + index * fatEntrySize, fatEntrySize);
+    final view = ByteData.sublistView(bytes);
+    return view.getUint16(0, Endian.little);
   }
 
   void setEntry(int index, int value) {
-    final view = ByteData.sublistView(_bytes);
-    view.setUint16(index * fatEntrySize, value, Endian.little);
+    final bytes = Uint8List(2);
+    final view = ByteData.view(bytes.buffer);
+    view.setUint16(0, value, Endian.little);
+    storage.write(FatxConfig.fatOffset + index * fatEntrySize, bytes);
   }
 
   /// Finds the next free cluster (starting from index 2).
   int allocateCluster() {
-    // Total clusters = ImageSize / ClusterSize
-    // (Wait: FATX uses 16KB real clusters, but internal reporting is 2KB)
-    // For our 16KB mapping, the number of entries needed is ImageSize / 16384
-    final maxClusters = (imageSizeBytes / FatxConfig.clusterSizeReal).floor();
+    // Total clusters = StorageSize / ClusterSize
+    final maxClusters = (storage.length / FatxConfig.clusterSizeReal).floor();
     
     // Safety: The 4KB FAT can hold at most 2048 entries. 
-    // (2048 * 16KB = 32MB). If image > 32MB, the FAT itself would need to be larger.
     final limit = maxClusters > 2048 ? 2048 : maxClusters;
 
     for (var i = 2; i <= limit; i++) {
@@ -58,6 +53,17 @@ class FatxTable {
       }
     }
     throw Exception('Disk full');
+  }
+
+  /// Frees a cluster chain starting from [startCluster].
+  void freeChain(int startCluster) {
+    if (startCluster < 2) return;
+    var current = startCluster;
+    while (current != 0xFFFF && current != 0x0000) {
+      final next = getEntry(current);
+      setEntry(current, 0x0000);
+      current = next;
+    }
   }
 }
 

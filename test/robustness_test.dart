@@ -1,12 +1,12 @@
-import 'dart:typed_data';
 import 'package:xbox_memory_unit_tool/xbox_memory_unit_tool.dart';
+import 'package:xbox_memory_unit_tool/src/storage.dart';
 import 'package:test/test.dart';
 
 void main() {
   group('Robustness: Directory Extension', () {
     test('Should extend root directory when more than 256 entries are added', () {
       final mu = XboxMemoryUnit.format();
-      final image = FatxImage(mu.bytes);
+      final image = FatxImage(MemoryStorage(mu.bytes));
 
       // 1. Fill the root directory (Cluster 1)
       // 16384 bytes / 64 bytes per entry = 256 entries.
@@ -38,7 +38,7 @@ void main() {
 
     test('Should handle multiple extensions', () {
         final mu = XboxMemoryUnit.format();
-        final image = FatxImage(mu.bytes);
+        final image = FatxImage(MemoryStorage(mu.bytes));
 
         // Add 600 entries (should be 3 clusters: 256 + 256 + 88)
         for (var i = 1; i <= 600; i++) {

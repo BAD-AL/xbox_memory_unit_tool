@@ -23,5 +23,6 @@
     - [x] Implement directory chain extension (support > 256 entries).
     - [x] Consolidate CLI error handling (user-friendly messages).
     - [x] Verify robustness with `test/robustness_test.dart`.
+    - [x] Implement recursive deletion (`rm` command) and FAT chain freeing.
 
 *Status: Completed*

@@ -7,6 +7,7 @@ void main(List<String> arguments) {
     ..addCommand('ls')
     ..addCommand('import')
     ..addCommand('export')
+    ..addCommand('rm')
     ..addCommand('format');
 
   ArgResults results;
@@ -37,6 +38,9 @@ void main(List<String> arguments) {
       case 'export':
         handleExport(command);
         break;
+      case 'rm':
+        handleRm(command);
+        break;
       default:
         printUsage(parser);
     }
@@ -62,6 +66,7 @@ void printUsage(ArgParser parser) {
   print('  ls <image_path>                      List all games and saves');
   print('  import <image_path> <zip_path>       Import a save ZIP');
   print('  export <image_path> <path> [zip]     Export a directory to ZIP (Supports name-based paths)');
+  print('  rm <image_path> <path>               Delete a game or save by friendly path');
   print('  format <image_path>                  Produce a formatted 8MB image file');
   print('');
   print('Examples:');
@@ -71,6 +76,32 @@ void printUsage(ArgParser parser) {
   print('  xbmut export card.bin "NFL 2K5"      Export all game saves to "NFL 2K5.zip"');
   print('  xbmut export card.bin "NFL 2K5/R1"   Export specific save to "R1.zip"');
   print('  xbmut export card.bin 53450030/19FA  Export by literal IDs');
+  print('  xbmut rm card.bin "NFL 2K5/R1"       Delete specific save');
+}
+
+void handleRm(ArgResults results) {
+  if (results.rest.length < 2) {
+    print('Usage: xbmut rm <image_path> <path>');
+    return;
+  }
+
+  final imagePath = results.rest[0];
+  final searchPath = results.rest[1];
+
+  if (!File(imagePath).existsSync()) {
+    print('Error: File $imagePath does not exist.');
+    return;
+  }
+
+  final bytes = File(imagePath).readAsBytesSync();
+  final mu = XboxMemoryUnit.fromBytes(bytes);
+
+  print('Searching for $searchPath to delete...');
+  mu.delete(searchPath);
+  
+  // Save changes
+  File(imagePath).writeAsBytesSync(mu.bytes);
+  print('Done.');
 }
 
 void handleFormat(ArgResults results) {
