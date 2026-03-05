@@ -24,5 +24,7 @@
     - [x] Consolidate CLI error handling (user-friendly messages).
     - [x] Verify robustness with `test/robustness_test.dart`.
     - [x] Implement recursive deletion (`rm` command) and FAT chain freeing.
+    - [x] Implement `FatxStorage` abstraction (Memory vs File/Device).
+    - [x] Support raw device access via `RandomAccessFile` (efficient seeking).
 
 *Status: Completed*

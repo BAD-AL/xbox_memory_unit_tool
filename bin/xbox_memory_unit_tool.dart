@@ -52,8 +52,12 @@ void main(List<String> arguments) {
 void _printError(Object e) {
   if (e is UnimplementedError) {
     print('Error: This feature is not yet implemented.');
+  } else if (e is FileSystemException) {
+    print('Error: ${e.message}${e.path != null ? " (Path: ${e.path})" : ""}');
+    if (e.osError != null) {
+      print('OS Error: ${e.osError!.message} (Code: ${e.osError!.errorCode})');
+    }
   } else {
-    // Format the exception string to be user-friendly
     final msg = e.toString().replaceFirst('Exception: ', '');
     print('Error: $msg');
   }
