@@ -86,12 +86,15 @@ void printUsage(ArgParser parser) {
   print('  xbmut ls card.bin                    List all games and saves');
   print('  xbmut ls card.bin --size --time      List with detailed info');
   print('  sudo cat /dev/sdc | xbmut ls -       List contents of physical drive plugged into /dev/sdc (Linux)');
+  print('  sudo cat /dev/sdd | xbmut export - all     Export contents of physical drive plugged into /dev/sdc to "all.zip" (Linux)');
   print('  xbmut export card.bin all            Export entire card to "all.zip"');
   print('  xbmut export card.bin 55530004       Export Game folder to "55530004.zip"');
   print('  xbmut export card.bin Deathrow       Export all Deathrow saves to "Deathrow.zip"');
   print('  xbmut export card.bin "54540003/8DD53EC93D8B"     Export save to 8DD53EC93D8B.zip');
   print('  xbmut export card.bin "ESPN NFL 2K5/2K26Fran"   Export save to 2K26Fran.zip');
   print('  xbmut export card.bin all-individual ./out/  Batch export each save');
+  print('  xbmut export card.bin all-individual ./out/  Batch export each save');
+  //sudo cat /dev/sdd | ./xbmut export - all
 }
 
 Future<XboxMemoryUnit> _loadMU(String path, {bool writeAccess = false}) async {
