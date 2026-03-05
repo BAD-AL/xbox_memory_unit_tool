@@ -98,7 +98,7 @@ mu.delete("NFL 2K5/OldSave");
 
 ---
 ### 4. OG XBOX physical memory units
-Currently you must dump your memory unit to an image file for xbmut to interact with it (***Linux***). You may also be able to do this on ***Mac***, but the commands could differ.
+You can dump your memory unit to an image file for xbmut to interact with it (***Linux***). You may also be able to do this on ***Mac***, but the commands could differ.
 ```bash
 # To read contents of a memory Unit (Linux).
 # list the block devices to find the correct one (check SIZE to figure out which device it is)

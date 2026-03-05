@@ -85,7 +85,7 @@ void printUsage(ArgParser parser) {
   print('Examples:');
   print('  xbmut ls card.bin                    List all games and saves');
   print('  xbmut ls card.bin --size --time      List with detailed info');
-  print('  sudo cat /dev/sdc | xbmut ls -       List contents of physical drive');
+  print('  sudo cat /dev/sdc | xbmut ls -       List contents of physical drive plugged into /dev/sdc (Linux)');
   print('  xbmut export card.bin all            Export entire card to "all.zip"');
   print('  xbmut export card.bin 55530004       Export Game folder to "55530004.zip"');
   print('  xbmut export card.bin Deathrow       Export all Deathrow saves to "Deathrow.zip"');
