@@ -1,8 +1,9 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:args/args.dart';
 import 'package:xbox_memory_unit_tool/xbox_memory_unit_tool.dart';
 
-void main(List<String> arguments) {
+void main(List<String> arguments) async {
   final parser = ArgParser()
     ..addCommand('ls')
     ..addCommand('import')
@@ -27,19 +28,19 @@ void main(List<String> arguments) {
   try {
     switch (command.name) {
       case 'format':
-        handleFormat(command);
+        await handleFormat(command);
         break;
       case 'ls':
-        handleLs(command);
+        await handleLs(command);
         break;
       case 'import':
-        handleImport(command);
+        await handleImport(command);
         break;
       case 'export':
-        handleExport(command);
+        await handleExport(command);
         break;
       case 'rm':
-        handleRm(command);
+        await handleRm(command);
         break;
       default:
         printUsage(parser);
@@ -73,17 +74,33 @@ void printUsage(ArgParser parser) {
   print('  rm <image_path> <path>               Delete a game or save by friendly path');
   print('  format <image_path>                  Produce a formatted 8MB image file');
   print('');
+  print('Note: Use "-" for <image_path> to read from stdin (ls/export only).');
+  print('');
   print('Examples:');
-  print('  xbmut format card.bin                Create a fresh 8MB memory unit');
   print('  xbmut ls card.bin                    List all games and saves');
-  print('  xbmut import card.bin MySave.zip     Import a save (strips UDATA/ prefix)');
-  print('  xbmut export card.bin "NFL 2K5"      Export all game saves to "NFL 2K5.zip"');
-  print('  xbmut export card.bin "NFL 2K5/R1"   Export specific save to "R1.zip"');
-  print('  xbmut export card.bin 53450030/19FA  Export by literal IDs');
+  print('  sudo cat /dev/sdc | xbmut ls -       List contents of physical drive');
+  print('  xbmut import card.bin MySave.zip     Import a save');
   print('  xbmut rm card.bin "NFL 2K5/R1"       Delete specific save');
 }
 
-void handleRm(ArgResults results) {
+Future<XboxMemoryUnit> _loadMU(String path, {bool writeAccess = false}) async {
+  if (path == '-') {
+    if (writeAccess) {
+      throw Exception('Write access is not supported when reading from stdin.');
+    }
+    print('Reading from stdin...');
+    final bytes = await stdin.fold<List<int>>([], (prev, element) => prev..addAll(element));
+    return XboxMemoryUnit.fromBytes(Uint8List.fromList(bytes));
+  }
+
+  final file = File(path);
+  if (!file.existsSync()) {
+    throw FileSystemException('File does not exist', file.absolute.path, const OSError('No such file or directory', 2));
+  }
+  return XboxMemoryUnit.fromFile(file, writeAccess: writeAccess);
+}
+
+Future<void> handleRm(ArgResults results) async {
   if (results.rest.length < 2) {
     print('Usage: xbmut rm <image_path> <path>');
     return;
@@ -92,13 +109,7 @@ void handleRm(ArgResults results) {
   final imagePath = results.rest[0];
   final searchPath = results.rest[1];
 
-  final file = File(imagePath);
-  if (!file.existsSync()) {
-    print('Error: File $imagePath does not exist.');
-    return;
-  }
-
-  final mu = XboxMemoryUnit.fromFile(file);
+  final mu = await _loadMU(imagePath, writeAccess: true);
 
   print('Searching for $searchPath to delete...');
   mu.delete(searchPath);
@@ -106,7 +117,7 @@ void handleRm(ArgResults results) {
   print('Done.');
 }
 
-void handleFormat(ArgResults results) {
+Future<void> handleFormat(ArgResults results) async {
   if (results.rest.length != 1) {
     print('Usage: xbmut format <image_path>');
     return;
@@ -119,23 +130,16 @@ void handleFormat(ArgResults results) {
   print('Done.');
 }
 
-void handleLs(ArgResults results) {
+Future<void> handleLs(ArgResults results) async {
   if (results.rest.isEmpty) {
     print('Usage: xbmut ls <image_path>');
     return;
   }
 
   final imagePath = results.rest[0];
-  final file = File(imagePath);
-  if (!file.existsSync()) {
-    print('Error: File ${file.absolute.path} does not exist.');
-    return;
-  }
+  final mu = await _loadMU(imagePath, writeAccess: false);
 
-  // Use fromFile to avoid loading entire image into RAM
-  final mu = XboxMemoryUnit.fromFile(file, writeAccess: false);
-
-  print('Listing ${file.absolute.path}...');
+  print('Listing contents...');
   for (final title in mu.titles) {
     print('Game: ${title.name} (${title.id})');
     for (final save in title.saves) {
@@ -144,7 +148,7 @@ void handleLs(ArgResults results) {
   }
 }
 
-void handleImport(ArgResults results) {
+Future<void> handleImport(ArgResults results) async {
   if (results.rest.length < 2) {
     print('Usage: xbmut import <image_path> <zip_path>');
     return;
@@ -153,27 +157,21 @@ void handleImport(ArgResults results) {
   final imagePath = results.rest[0];
   final zipPath = results.rest[1];
 
-  final file = File(imagePath);
-  if (!file.existsSync()) {
-    print('Error: File $imagePath does not exist.');
-    return;
-  }
+  final mu = await _loadMU(imagePath, writeAccess: true);
 
   if (!File(zipPath).existsSync()) {
     print('Error: ZIP $zipPath does not exist.');
     return;
   }
 
-  final mu = XboxMemoryUnit.fromFile(file);
-
-  print('Importing $zipPath into $imagePath...');
+  print('Importing $zipPath...');
   final zipBytes = File(zipPath).readAsBytesSync();
   mu.importZip(zipBytes);
   mu.flush();
   print('Done.');
 }
 
-void handleExport(ArgResults results) {
+Future<void> handleExport(ArgResults results) async {
   if (results.rest.length < 2) {
     print('Usage: xbmut export <image_path> <search_path> [zip_path]');
     return;
@@ -182,7 +180,6 @@ void handleExport(ArgResults results) {
   final imagePath = results.rest[0];
   final searchPath = results.rest[1];
   
-  // Infer ZIP path if not provided
   String zipPath;
   if (results.rest.length > 2) {
     zipPath = results.rest[2];
@@ -191,13 +188,7 @@ void handleExport(ArgResults results) {
     zipPath = '${parts.last}.zip';
   }
 
-  final file = File(imagePath);
-  if (!file.existsSync()) {
-    print('Error: File $imagePath does not exist.');
-    return;
-  }
-
-  final mu = XboxMemoryUnit.fromFile(file, writeAccess: false);
+  final mu = await _loadMU(imagePath, writeAccess: false);
 
   print('Searching for $searchPath...');
   final zipBytes = mu.export(searchPath);
