@@ -9,8 +9,8 @@ class FatxImage {
   late final FatxTable fat;
 
   FatxImage(this.storage) {
-    if (storage.length < FatxConfig.muSize) {
-      throw ArgumentError('Storage must be at least ${FatxConfig.muSize} bytes');
+    if (storage.length < 1024 * 1024) {
+      throw ArgumentError('Storage must be at least 1MB');
     }
     if (storage.length % FatxConfig.clusterSizeReal != 0) {
       throw ArgumentError('Storage size must be a multiple of the cluster size (16KB)');
