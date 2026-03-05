@@ -88,19 +88,17 @@ void handleRm(ArgResults results) {
   final imagePath = results.rest[0];
   final searchPath = results.rest[1];
 
-  if (!File(imagePath).existsSync()) {
+  final file = File(imagePath);
+  if (!file.existsSync()) {
     print('Error: File $imagePath does not exist.');
     return;
   }
 
-  final bytes = File(imagePath).readAsBytesSync();
-  final mu = XboxMemoryUnit.fromBytes(bytes);
+  final mu = XboxMemoryUnit.fromFile(file);
 
   print('Searching for $searchPath to delete...');
   mu.delete(searchPath);
-  
-  // Save changes
-  File(imagePath).writeAsBytesSync(mu.bytes);
+  mu.flush();
   print('Done.');
 }
 
@@ -124,14 +122,15 @@ void handleLs(ArgResults results) {
   }
 
   final imagePath = results.rest[0];
+  final file = File(imagePath);
 
-  if (!File(imagePath).existsSync()) {
+  if (!file.existsSync()) {
     print('Error: File $imagePath does not exist.');
     return;
   }
 
-  final bytes = File(imagePath).readAsBytesSync();
-  final mu = XboxMemoryUnit.fromBytes(bytes);
+  // Use fromFile to avoid loading entire image into RAM
+  final mu = XboxMemoryUnit.fromFile(file, writeAccess: false);
 
   print('Listing $imagePath...');
   for (final title in mu.titles) {
@@ -151,7 +150,8 @@ void handleImport(ArgResults results) {
   final imagePath = results.rest[0];
   final zipPath = results.rest[1];
 
-  if (!File(imagePath).existsSync()) {
+  final file = File(imagePath);
+  if (!file.existsSync()) {
     print('Error: File $imagePath does not exist.');
     return;
   }
@@ -161,15 +161,12 @@ void handleImport(ArgResults results) {
     return;
   }
 
-  final bytes = File(imagePath).readAsBytesSync();
-  final mu = XboxMemoryUnit.fromBytes(bytes);
+  final mu = XboxMemoryUnit.fromFile(file);
 
   print('Importing $zipPath into $imagePath...');
   final zipBytes = File(zipPath).readAsBytesSync();
   mu.importZip(zipBytes);
-  
-  // Save changes
-  File(imagePath).writeAsBytesSync(mu.bytes);
+  mu.flush();
   print('Done.');
 }
 
@@ -191,13 +188,13 @@ void handleExport(ArgResults results) {
     zipPath = '${parts.last}.zip';
   }
 
-  if (!File(imagePath).existsSync()) {
+  final file = File(imagePath);
+  if (!file.existsSync()) {
     print('Error: File $imagePath does not exist.');
     return;
   }
 
-  final bytes = File(imagePath).readAsBytesSync();
-  final mu = XboxMemoryUnit.fromBytes(bytes);
+  final mu = XboxMemoryUnit.fromFile(file, writeAccess: false);
 
   print('Searching for $searchPath...');
   final zipBytes = mu.export(searchPath);
