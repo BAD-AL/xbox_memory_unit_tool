@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'fatx.dart';
 import 'fatx_image.dart';
@@ -9,7 +8,7 @@ import 'searcher.dart';
 import 'xbx_meta.dart';
 import 'models.dart';
 import 'storage.dart';
-import 'storage_io.dart';
+import 'storage_factory_compat.dart';
 
 // High-level API types
 
@@ -30,17 +29,18 @@ class XboxMemoryUnit {
   }
 
   /// Opens an Xbox Memory Unit from a physical file or device.
-  factory XboxMemoryUnit.fromFile(File file, {bool writeAccess = true}) {
-    final storage = FileStorage.open(file, writeAccess: writeAccess);
+  /// Not available on web.
+  factory XboxMemoryUnit.fromFile(dynamic file, {bool writeAccess = true}) {
+    final storage = createFileStorage(file, writeAccess: writeAccess);
     return XboxMemoryUnit._(FatxImage(storage));
   }
 
-  /// Returns the raw bytes (only works for memory-based storage).
+  /// Returns the raw bytes of the memory unit.
   Uint8List get bytes {
     if (_image.storage is MemoryStorage) {
       return (_image.storage as MemoryStorage).bytes;
     }
-    throw UnsupportedError('Raw bytes access is not supported for file-based storage.');
+    return _image.storage.read(0, _image.storage.length);
   }
 
   /// Flushes any pending writes to the underlying storage.
