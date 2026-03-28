@@ -66,6 +66,15 @@ sudo dd if=/dev/sdc of=mu_dump.bin bs=1M
 ./xbmut ls mu_dump.bin
 ```
 
+### 4. Modifying and Writing Back (Round-trip)
+You can modify a dump and then write it back to the physical device:
+
+1. **Dump the card**: `sudo dd if=/dev/sdc of=mu_backup.bin bs=1M`
+2. **Modify the dump** (e.g., import a save): `./xbmut import mu_backup.bin MySave.zip`
+3. **Write back to the card**: `sudo dd if=mu_backup.bin of=/dev/sdc bs=1M`
+
+**Warning:** Writing back to a physical device is a destructive operation. Ensure you have the correct device path (e.g., `/dev/sdc`) and a backup of your original dump.
+
 ---
 
 # Library API

@@ -66,6 +66,44 @@ void _printError(Object e) {
   }
 }
 
+/// Prints [text] in the specified [color].
+/// Possible colors: [ 
+///   black, red, green, yellow, blue, magenta, cyan, white, gray, 
+///   bright_red, bright_green, bright_yellow, bright_blue, bright_magenta, 
+///   bright_cyan, bright_white
+/// ]
+void printc(String stringToPrint, String foregroundColor) {
+  // Map of common names to ANSI foreground codes
+  final Map<String, String> colors = {
+    'black': '\x1B[30m',
+    'red': '\x1B[31m',
+    'green': '\x1B[32m',
+    'yellow': '\x1B[33m',
+    'blue': '\x1B[34m',
+    'magenta': '\x1B[35m',
+    'cyan': '\x1B[36m',
+    'white': '\x1B[37m',
+
+    // Bright Colors (90-97)
+    'gray': '\x1B[90m', // Bright Black
+    'bright_red': '\x1B[91m',
+    'bright_green': '\x1B[92m',
+    'bright_yellow': '\x1B[93m',
+    'bright_blue': '\x1B[94m',
+    'bright_magenta': '\x1B[95m',
+    'bright_cyan': '\x1B[96m',
+    'bright_white': '\x1B[97m',
+
+    'reset': '\x1B[0m',
+  };
+
+  // Get the code, defaulting to 'reset' if the color isn't found
+  String code = colors[foregroundColor.toLowerCase()] ?? colors['reset']!;
+  String reset = colors['reset']!;
+
+  print('$code$stringToPrint$reset');
+}
+
 void printUsage(ArgParser parser) {
   print('Usage: xbmut <command> [arguments]');
   print('');
@@ -85,8 +123,14 @@ void printUsage(ArgParser parser) {
   print('Examples:');
   print('  xbmut ls card.bin                    List all games and saves');
   print('  xbmut ls card.bin --size --time      List with detailed info');
-  print('  sudo cat /dev/sdc | xbmut ls -       List contents of physical drive plugged into /dev/sdc (Linux)');
-  print('  sudo cat /dev/sdd | xbmut export - all     Export contents of physical drive plugged into /dev/sdc to "all.zip" (Linux)');
+  printc('  --   Linux-only-start ---', "bright_cyan");
+  print('  lsblk                                        Locate plugged-in memcard/FATX usb (sdc, sdd ...)');
+  print('  sudo dd if=/dev/sdc of=mu_backup.bin bs=1M   Dump the card');
+  print('  sudo dd if=mu_backup.bin of=/dev/sdc bs=1M   Write back to the card (Linux) ');
+  print('');
+  print('  sudo cat /dev/sdc | xbmut ls -              List contents of physical drive plugged into /dev/sdc (Linux)');
+  print('  sudo cat /dev/sdd | xbmut export - all      Export contents of physical drive plugged into /dev/sdc to "all.zip" (Linux)');
+  printc('  --   Linux-only-end ---', "bright_cyan");
   print('  xbmut export card.bin all            Export entire card to "all.zip"');
   print('  xbmut export card.bin 55530004       Export Game folder to "55530004.zip"');
   print('  xbmut export card.bin Deathrow       Export all Deathrow saves to "Deathrow.zip"');
