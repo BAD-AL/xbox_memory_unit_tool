@@ -4,6 +4,10 @@ A pure Dart implementation for managing Xbox FATX Memory Unit (MU) and USB image
 
 Web interface: https://BAD-AL.github.io/xbmut_web/
 
+<a href="https://https://BAD-AL.github.io/xbmut_web/">
+  <img src="https://raw.githubusercontent.com/BAD-AL/xbmut_web/main/Welcome.png" alt="Welcome screen" width="400">
+</a>
+
 Web interface project: https://github.com/BAD-AL/xbmut_web 
 
 ## Key Features
