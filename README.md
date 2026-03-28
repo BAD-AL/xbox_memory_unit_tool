@@ -30,6 +30,9 @@ dart compile exe bin/xbox_memory_unit_tool.dart -o xbmut
     - Use `<path>` like `"Game Name/Save Name"` for selective export.
     - Use `all` as `<path>` to export the entire card as one ZIP.
     - Use `all-individual` as `<path>` to export every save to its own ZIP.
+- `extract-image <image_path> <path> [out_dir/file]`: Extract and convert icons (.xbx) to .bmp.
+    - Supports DXT1/DXT3 decoding and unswizzling.
+    - Use `all` as `<path>` to batch convert every icon on the card.
 - `rm <image_path> <path>`: Delete a game or save by friendly path.
 
 ### Examples
@@ -39,6 +42,8 @@ dart compile exe bin/xbox_memory_unit_tool.dart -o xbmut
 - **Export selective**: `xbmut export card.bin "NFL 2K5/Roster1"`
 - **Full backup**: `xbmut export card.bin all backup.zip`
 - **Batch export**: `xbmut export card.bin all-individual ./my_saves/`
+- **Extract icons**: `xbmut extract-image card.bin "NFL 2K5" roster_logo.bmp`
+- **Extract all icons**: `xbmut extract-image card.bin all ./icons/`
 - **Delete a save**: `xbmut rm card.bin "NFL 2K5/Roster1"`
 
 ---
@@ -105,8 +110,15 @@ File('everything.zip').writeAsBytesSync(fullBackup);
 mu.delete("NFL 2K5/OldSave");
 ```
 
+### 4. Extracting Images (TitleImage / SaveImage)
+```dart
+var title = mu.findTitle("ESPN NFL 2K5");
+Uint8List? bmp = title?.titleImageBmp; // Converted DXT1/DXT3 -> BMP
+if (bmp != null) File('logo.bmp').writeAsBytesSync(bmp);
+```
+
 ---
-### 4. OG XBOX physical memory units
+### 5. OG XBOX physical memory units
 You can dump your memory unit to an image file for xbmut to interact with it (***Linux***). You may also be able to do this on ***Mac***, but the commands could differ.
 ```bash
 # To read contents of a memory Unit (Linux).

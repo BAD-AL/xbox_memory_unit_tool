@@ -11,7 +11,8 @@ void main(List<String> arguments) async {
     ..addCommand('import')
     ..addCommand('export')
     ..addCommand('rm')
-    ..addCommand('format');
+    ..addCommand('format')
+    ..addCommand('extract-image');
 
   ArgResults results;
   try {
@@ -43,6 +44,9 @@ void main(List<String> arguments) async {
         break;
       case 'rm':
         await handleRm(command);
+        break;
+      case 'extract-image':
+        await handleExtractImage(command);
         break;
       default:
         printUsage(parser);
@@ -113,6 +117,8 @@ void printUsage(ArgParser parser) {
   print('  export <image_path> <path> [zip]     Export a directory to ZIP (Supports name-based paths)');
   print('  rm <image_path> <path>               Delete a game or save by friendly path');
   print('  format <image_path>                  Produce a formatted 8MB image file');
+  print('  extract-image <image_path> <path> [out]   Extract and convert .xbx icon(s) to .bmp');
+  print('                                            <path> can be "all", a game name, or "game/save"');
   print('');
   print('Options for "ls":');
   print('  -s, --size                           Show sizes');
@@ -138,6 +144,8 @@ void printUsage(ArgParser parser) {
   print('  xbmut export card.bin "ESPN NFL 2K5/2K26Fran"   Export save to 2K26Fran.zip');
   print('  xbmut export card.bin all-individual ./out/  Batch export each save');
   print('  xbmut export card.bin all-individual ./out/  Batch export each save');
+  print('  xbmut extract-image  mu_dump_2k4.bin "Max Payne" mp.bmp   extract title image');
+  print('  xbmut extract-image mu_dump_2k4.bin 4c41001a/C3F49C01519D Player1.bmp   extract save image');
   //sudo cat /dev/sdd | ./xbmut export - all
 }
 
@@ -301,4 +309,95 @@ Future<void> handleExport(ArgResults results) async {
 
 String _sanitizeFilename(String name) {
   return name.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+}
+
+Future<void> handleExtractImage(ArgResults results) async {
+  if (results.rest.length < 2) {
+    print('Usage: xbmut extract-image <image_path> <search_path> [out]');
+    return;
+  }
+
+  final imagePath = results.rest[0];
+  final searchPath = results.rest[1];
+  final mu = await _loadMU(imagePath, writeAccess: false);
+
+  if (searchPath.toLowerCase() == 'all') {
+    final outDir = Directory(results.rest.length > 2 ? results.rest[2] : '.');
+    if (!outDir.existsSync()) outDir.createSync(recursive: true);
+
+    print('Extracting all images to ${outDir.path}...');
+    var count = 0;
+    for (final title in mu.titles) {
+      final titleBmp = title.titleImageBmp;
+      if (titleBmp != null) {
+        final filename = _sanitizeFilename('${title.name}_Title.bmp');
+        File('${outDir.path}/$filename').writeAsBytesSync(titleBmp);
+        print('  Saved: $filename');
+        count++;
+      }
+      for (final save in title.saves) {
+        final saveBmp = save.saveImageBmp;
+        if (saveBmp != null) {
+          final filename = _sanitizeFilename('${title.name}_${save.name}_Save.bmp');
+          File('${outDir.path}/$filename').writeAsBytesSync(saveBmp);
+          print('  Saved: $filename');
+          count++;
+        }
+      }
+    }
+    print('\nDone. Extracted $count images.');
+    return;
+  }
+
+  // Single extraction (Game or Save)
+  print('Searching for $searchPath...');
+  
+  if (searchPath.contains('/')) {
+    // Likely a save path "Game/Save"
+    final parts = searchPath.split('/');
+    final title = mu.findTitle(parts[0]);
+    if (title == null) {
+      print('Error: Game "${parts[0]}" not found.');
+      return;
+    }
+    final save = title.findSave(parts[1]);
+    if (save == null) {
+      print('Error: Save "${parts[1]}" not found in ${title.name}.');
+      return;
+    }
+    
+    final raw = save.saveImage;
+    if (raw == null) {
+      print('Error: SaveImage.xbx not found for this save.');
+      return;
+    }
+    final bmp = XbxImageConverter.convertToBmp(raw);
+    if (bmp == null) {
+      print('Error: SaveImage.xbx exists but failed to convert (Unsupported XPR0 format or size).');
+      return;
+    }
+    final outPath = results.rest.length > 2 ? results.rest[2] : _sanitizeFilename('${title.name}_${save.name}.bmp');
+    File(outPath).writeAsBytesSync(bmp);
+    print('Extracted to $outPath');
+  } else {
+    // Likely a game name or ID
+    final title = mu.findTitle(searchPath);
+    if (title == null) {
+      print('Error: Game "$searchPath" not found.');
+      return;
+    }
+    final raw = title.titleImage;
+    if (raw == null) {
+      print('Error: TitleImage.xbx not found for this game.');
+      return;
+    }
+    final bmp = XbxImageConverter.convertToBmp(raw);
+    if (bmp == null) {
+      print('Error: TitleImage.xbx exists but failed to convert (Unsupported XPR0 format or size).');
+      return;
+    }
+    final outPath = results.rest.length > 2 ? results.rest[2] : _sanitizeFilename('${title.name}.bmp');
+    File(outPath).writeAsBytesSync(bmp);
+    print('Extracted to $outPath');
+  }
 }

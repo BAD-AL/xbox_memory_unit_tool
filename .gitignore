@@ -3,3 +3,6 @@
 .dart_tool/
 mega-dump/
 test_these_xemu/
+web_proto/
+delete_these/
+extracted_icons/

@@ -33,7 +33,7 @@ void main() {
       Uint8List bytes = File('test/test_files/XEMU_Created_default_roster.bin').readAsBytesSync();
       XboxMemoryUnit mu = XboxMemoryUnit.fromBytes(bytes);
 
-      XboxTitle? title = mu.findTitleByName('ESPN NFL 2K5');
+      XboxTitle? title = mu.findTitle('ESPN NFL 2K5');
       expect(title, isNotNull);
       expect(title!.id, '53450030');
     });

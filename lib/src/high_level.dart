@@ -6,6 +6,7 @@ import 'importer.dart';
 import 'exporter.dart';
 import 'searcher.dart';
 import 'xbx_meta.dart';
+import 'xbx_image_converter.dart';
 import 'models.dart';
 import 'storage.dart';
 import 'storage_factory_compat.dart';
@@ -105,11 +106,11 @@ class XboxMemoryUnit {
     return exporter.exportGameOrSave(result);
   }
 
-  /// Finds a title by its internal name (case-insensitive).
-  XboxTitle? findTitleByName(String name) {
-    final searchName = name.toUpperCase();
+  /// Finds a title by its internal name or Title ID (case-insensitive).
+  XboxTitle? findTitle(String nameOrId) {
+    final search = nameOrId.toUpperCase();
     for (final title in titles) {
-      if (title.name.toUpperCase() == searchName) return title;
+      if (title.name.toUpperCase() == search || title.id.toUpperCase() == search) return title;
     }
     return null;
   }
@@ -145,12 +146,28 @@ class XboxTitle {
   /// Returns the TitleImage.xbx bytes, if present.
   Uint8List? get titleImage => _readFile('TitleImage.xbx');
 
+  /// Finds a save by its friendly name or folder name (case-insensitive).
+  XboxSave? findSave(String nameOrFolder) {
+    final search = nameOrFolder.toUpperCase();
+    for (final save in saves) {
+      if (save.name.toUpperCase() == search || save.folderName.toUpperCase() == search) return save;
+    }
+    return null;
+  }
+
+  /// Returns the TitleImage.xbx converted to BMP, if present.
+  Uint8List? get titleImageBmp {
+    final bytes = titleImage;
+    return bytes != null ? XbxImageConverter.convertToBmp(bytes, unswizzle: false) : null;
+  }
+
   /// Returns the TitleMeta.xbx bytes, if present.
   Uint8List? get titleMeta => _readFile('TitleMeta.xbx');
 
   Uint8List? _readFile(String filename) {
     final entries = _mu._image.listDirectory(_entry.firstCluster);
-    final file = entries.where((e) => e.filename == filename).toList();
+    final search = filename.toUpperCase();
+    final file = entries.where((e) => e.filename.toUpperCase() == search).toList();
     if (file.isEmpty) return null;
     return _mu._image.readChain(file.first.firstCluster, file.first.fileSize);
   }
@@ -189,9 +206,16 @@ class XboxSave {
   /// Returns the SaveImage.xbx bytes, if present (checks save folder then parent title folder).
   Uint8List? get saveImage => _readFile('SaveImage.xbx') ?? parent._readFile('SaveImage.xbx');
 
+  /// Returns the SaveImage.xbx converted to BMP, if present.
+  Uint8List? get saveImageBmp {
+    final bytes = saveImage;
+    return bytes != null ? XbxImageConverter.convertToBmp(bytes, unswizzle: false) : null;
+  }
+
   Uint8List? _readFile(String filename) {
     final entries = parent._mu._image.listDirectory(_entry.firstCluster);
-    final file = entries.where((e) => e.filename == filename).toList();
+    final search = filename.toUpperCase();
+    final file = entries.where((e) => e.filename.toUpperCase() == search).toList();
     if (file.isEmpty) return null;
     return parent._mu._image.readChain(file.first.firstCluster, file.first.fileSize);
   }
