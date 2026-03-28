@@ -2,6 +2,8 @@
 
 A pure Dart implementation for managing Xbox FATX Memory Unit (MU) and USB images. This tool is designed for compatibility with **Xemu** and  OG Xbox memory unit image files.
 
+Web interface: https://BAD-AL.github.io/xbmut_web/
+
 ## Key Features
 - **Create Xbox Memory Unit files**: (Usable in XEMU).
 - **List contents**: View games, saves, sizes, and timestamps.
