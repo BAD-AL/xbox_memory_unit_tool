@@ -48,8 +48,8 @@ class FatxImporter {
           ..fileSize = 0;
         
         // Initialize directory cluster with 0xFF (XEMU Gold Standard)
-        final padding = Uint8List(FatxConfig.clusterSizeReal)
-          ..fillRange(0, FatxConfig.clusterSizeReal, 0xFF);
+        final padding = Uint8List(image.config.clusterSizeReal)
+          ..fillRange(0, image.config.clusterSizeReal, 0xFF);
         image.writeCluster(newCluster, padding);
         
         image.addEntry(currentDirCluster, dirEntry);
@@ -77,7 +77,7 @@ class FatxImporter {
   int _writeFileData(Uint8List data) {
     if (data.isEmpty) return 0;
 
-    final numClusters = (data.length / FatxConfig.clusterSizeReal).ceil();
+    final numClusters = (data.length / image.config.clusterSizeReal).ceil();
     final clusters = <int>[];
     for (var i = 0; i < numClusters; i++) {
       clusters.add(image.fat.allocateCluster());
@@ -91,16 +91,16 @@ class FatxImporter {
 
     // Write data
     for (var i = 0; i < clusters.length; i++) {
-      final start = i * FatxConfig.clusterSizeReal;
-      var end = (i + 1) * FatxConfig.clusterSizeReal;
+      final start = i * image.config.clusterSizeReal;
+      var end = (i + 1) * image.config.clusterSizeReal;
       
-      final chunk = Uint8List(FatxConfig.clusterSizeReal);
+      final chunk = Uint8List(image.config.clusterSizeReal);
       if (end > data.length) {
           final sub = data.sublist(start);
           chunk.setRange(0, sub.length, sub);
       } else {
           final sub = data.sublist(start, end);
-          chunk.setRange(0, FatxConfig.clusterSizeReal, sub);
+          chunk.setRange(0, image.config.clusterSizeReal, sub);
       }
       image.writeCluster(clusters[i], chunk);
     }

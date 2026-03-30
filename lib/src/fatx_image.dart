@@ -7,15 +7,14 @@ import 'storage.dart';
 class FatxImage {
   final FatxStorage storage;
   late final FatxTable fat;
+  late final FatxConfig config;
 
   FatxImage(this.storage) {
     if (storage.length < 1024 * 1024) {
       throw ArgumentError('Storage must be at least 1MB');
     }
-    if (storage.length % FatxConfig.clusterSizeReal != 0) {
-      throw ArgumentError('Storage size must be a multiple of the cluster size (16KB)');
-    }
-    fat = FatxTable(storage);
+    config = FatxConfig.detect(storage);
+    fat = FatxTable(storage, config);
   }
 
   /// Returns the cluster chain for a given start cluster.
@@ -35,13 +34,13 @@ class FatxImage {
   /// Reads all data for a given cluster chain.
   Uint8List readChain(int startCluster, int size) {
     final chain = getClusterChain(startCluster);
-    final totalCapacity = chain.length * FatxConfig.clusterSizeReal;
+    final totalCapacity = chain.length * config.clusterSizeReal;
     
     final result = Uint8List(totalCapacity);
     for (var i = 0; i < chain.length; i++) {
-      final offset = FatxMapper.clusterToOffset(chain[i]);
-      final clusterData = storage.read(offset, FatxConfig.clusterSizeReal);
-      result.setRange(i * FatxConfig.clusterSizeReal, (i + 1) * FatxConfig.clusterSizeReal, clusterData);
+      final offset = FatxMapper.clusterToOffset(chain[i], config);
+      final clusterData = storage.read(offset, config.clusterSizeReal);
+      result.setRange(i * config.clusterSizeReal, (i + 1) * config.clusterSizeReal, clusterData);
     }
 
     return result.sublist(0, size > totalCapacity ? totalCapacity : size);
@@ -53,10 +52,10 @@ class FatxImage {
     final chain = getClusterChain(cluster);
 
     for (final c in chain) {
-      final offset = FatxMapper.clusterToOffset(c);
-      final clusterData = storage.read(offset, FatxConfig.clusterSizeReal);
+      final offset = FatxMapper.clusterToOffset(c, config);
+      final clusterData = storage.read(offset, config.clusterSizeReal);
       
-      for (var i = 0; i < FatxConfig.clusterSizeReal; i += FatxDirEntry.entrySize) {
+      for (var i = 0; i < config.clusterSizeReal; i += FatxDirEntry.entrySize) {
         final entryBytes = clusterData.sublist(i, i + FatxDirEntry.entrySize);
         final entry = FatxDirEntry.fromBytes(entryBytes);
         
@@ -69,12 +68,12 @@ class FatxImage {
     return entries;
   }
 
-  /// Writes a 16KB cluster of data.
+  /// Writes a cluster of data.
   void writeCluster(int clusterIndex, Uint8List data) {
-    if (data.length != FatxConfig.clusterSizeReal) {
-      throw ArgumentError('Must write exactly ${FatxConfig.clusterSizeReal} bytes');
+    if (data.length != config.clusterSizeReal) {
+      throw ArgumentError('Must write exactly ${config.clusterSizeReal} bytes');
     }
-    final offset = FatxMapper.clusterToOffset(clusterIndex);
+    final offset = FatxMapper.clusterToOffset(clusterIndex, config);
     storage.write(offset, data);
   }
 
@@ -82,10 +81,10 @@ class FatxImage {
   void addEntry(int dirCluster, FatxDirEntry newEntry) {
     final chain = getClusterChain(dirCluster);
     for (final c in chain) {
-      final offset = FatxMapper.clusterToOffset(c);
-      final clusterData = storage.read(offset, FatxConfig.clusterSizeReal);
+      final offset = FatxMapper.clusterToOffset(c, config);
+      final clusterData = storage.read(offset, config.clusterSizeReal);
 
-      for (var i = 0; i < FatxConfig.clusterSizeReal; i += FatxDirEntry.entrySize) {
+      for (var i = 0; i < config.clusterSizeReal; i += FatxDirEntry.entrySize) {
         final entryOffset = offset + i;
         final entryBytes = clusterData.sublist(i, i + FatxDirEntry.entrySize);
         final entry = FatxDirEntry.fromBytes(entryBytes);
@@ -105,12 +104,12 @@ class FatxImage {
     fat.setEntry(lastCluster, newCluster);
     
     // Initialize new cluster with 0xFF (XEMU/FATX standard for empty directory space)
-    final padding = Uint8List(FatxConfig.clusterSizeReal)
-      ..fillRange(0, FatxConfig.clusterSizeReal, 0xFF);
+    final padding = Uint8List(config.clusterSizeReal)
+      ..fillRange(0, config.clusterSizeReal, 0xFF);
     writeCluster(newCluster, padding);
     
     // Write the new entry to the first slot of the new cluster
-    final entryOffset = FatxMapper.clusterToOffset(newCluster);
+    final entryOffset = FatxMapper.clusterToOffset(newCluster, config);
     storage.write(entryOffset, newEntry.toBytes());
   }
 
@@ -118,10 +117,10 @@ class FatxImage {
   void deleteEntry(int parentCluster, String filename) {
     final chain = getClusterChain(parentCluster);
     for (final c in chain) {
-      final offset = FatxMapper.clusterToOffset(c);
-      final clusterData = storage.read(offset, FatxConfig.clusterSizeReal);
+      final offset = FatxMapper.clusterToOffset(c, config);
+      final clusterData = storage.read(offset, config.clusterSizeReal);
 
-      for (var i = 0; i < FatxConfig.clusterSizeReal; i += FatxDirEntry.entrySize) {
+      for (var i = 0; i < config.clusterSizeReal; i += FatxDirEntry.entrySize) {
         final entryOffset = offset + i;
         final entry = FatxDirEntry.fromBytes(clusterData.sublist(i, i + FatxDirEntry.entrySize));
 

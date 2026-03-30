@@ -18,13 +18,15 @@ void main() {
       expect(view.getUint32(4, Endian.little), 0x00000029);
     });
 
-    test('TR-3: Hybrid Offsets (Cluster 2 starts at 0x6000)', () {
-      expect(FatxMapper.clusterToOffset(2), 0x6000);
+    test('TR-3: Hybrid Offsets (Cluster 2 starts at 0x6000 for 8MB)', () {
+      final config = FatxConfig.forSize(8388608);
+      expect(FatxMapper.clusterToOffset(2, config), 0x6000);
     });
 
     test('TR-4: Padding Initialization (Data Area)', () {
+      final image = FatxImage(MemoryStorage(buffer));
       // Check first 64 bytes of cluster 1 (root directory)
-      final rootOffset = FatxMapper.clusterToOffset(1);
+      final rootOffset = FatxMapper.clusterToOffset(1, image.config);
       final rootArea = buffer.sublist(rootOffset, rootOffset + 64);
       expect(rootArea.every((b) => b == 0xFF), isTrue);
     });
@@ -127,7 +129,7 @@ void main() {
         ..filename = 'test.txt'
         ..fileSize = 4
         ..firstCluster = fileCluster);
-      image.writeCluster(fileCluster, Uint8List(FatxConfig.clusterSizeReal)..[0] = 65); // 'A'
+      image.writeCluster(fileCluster, Uint8List(image.config.clusterSizeReal)..[0] = 65); // 'A'
 
       final exporter = FatxExporter(image);
       final zipBytes = exporter.exportToZip(dirCluster, 'MYDIR/');

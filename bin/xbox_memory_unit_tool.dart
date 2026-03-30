@@ -116,7 +116,7 @@ void printUsage(ArgParser parser) {
   print('  import <image_path> <zip_path>       Import a save ZIP');
   print('  export <image_path> <path> [zip]     Export a directory to ZIP (Supports name-based paths)');
   print('  rm <image_path> <path>               Delete a game or save by friendly path');
-  print('  format <image_path>                  Produce a formatted 8MB image file');
+  print('  format <image_path> [size]           Produce a formatted image file (8, 16, 32, 64 MB)');
   print('  extract-image <image_path> <path> [out]   Extract and convert .xbx icon(s) to .bmp');
   print('                                            <path> can be "all", a game name, or "game/save"');
   print('');
@@ -184,14 +184,24 @@ Future<void> handleRm(ArgResults results) async {
 }
 
 Future<void> handleFormat(ArgResults results) async {
-  if (results.rest.length != 1) {
-    print('Usage: xbmut format <image_path>');
+  if (results.rest.isEmpty || results.rest.length > 2) {
+    print('Usage: xbmut format <image_path> [size_in_mb]');
     return;
   }
 
   final path = results.rest[0];
-  print('Formatting $path...');
-  final mu = XboxMemoryUnit.format();
+  var size = 8 * 1024 * 1024;
+  if (results.rest.length == 2) {
+    final mb = int.tryParse(results.rest[1]);
+    if (mb == null || ![8, 16, 32, 64].contains(mb)) {
+      print('Error: Size must be 8, 16, 32, or 64 (MB).');
+      return;
+    }
+    size = mb * 1024 * 1024;
+  }
+
+  print('Formatting $path (${size ~/ (1024 * 1024)}MB)...');
+  final mu = XboxMemoryUnit.format(size: size);
   File(path).writeAsBytesSync(mu.bytes);
   print('Done.');
 }

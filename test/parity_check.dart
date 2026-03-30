@@ -50,10 +50,10 @@ void _zeroTimestamps(Uint8List bytes) {
 void _zeroDirRecursive(FatxImage image, int cluster) {
   final chain = image.getClusterChain(cluster);
   for (final c in chain) {
-    final offset = FatxMapper.clusterToOffset(c);
-    final clusterData = image.storage.read(offset, FatxConfig.clusterSizeReal);
+    final offset = FatxMapper.clusterToOffset(c, image.config);
+    final clusterData = image.storage.read(offset, image.config.clusterSizeReal);
     
-    for (var i = 0; i < FatxConfig.clusterSizeReal; i += 64) {
+    for (var i = 0; i < image.config.clusterSizeReal; i += 64) {
       final entryOffset = offset + i;
       final filenameLen = clusterData[i];
       

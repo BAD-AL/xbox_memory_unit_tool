@@ -1,24 +1,77 @@
 import 'dart:typed_data';
 import 'storage.dart';
 
-/// Xbox FATX constants for an 8MB Memory Unit (MU).
+/// Xbox FATX constants and dynamic configuration.
 class FatxConfig {
-  static const int muSize = 8388608; // 8MB
+  final int muSize;
+  final int clusterSizeReal;
+  final int sectorsPerClusterReported;
+
   static const int superblockOffset = 0x0000;
   static const int fatOffset = 0x1000;
   static const int dataOffset = 0x2000;
   static const int bytesPerSector = 512;
-  static const int clusterSizeReal = 16384; // 32 sectors (16KB) - The "Truth"
-  static const int sectorsPerClusterReported = 4; // 4 sectors (2KB) - The "Lie"
   static const int volumeIdFixed = 0x00000029;
+
+  FatxConfig({required this.muSize, required this.clusterSizeReal, required this.sectorsPerClusterReported});
+
+  /// Calculates the appropriate geometry for a given MU size.
+  factory FatxConfig.forSize(int size) {
+    // We target a 4KB FAT (2048 entries) starting at 0x1000 and Data at 0x2000.
+    final usableBytes = size - dataOffset;
+    
+    // Determine cluster size such that we don't exceed 2048 clusters.
+    // 8MB, 16MB, 32MB -> 16KB clusters.
+    // 64MB -> 32KB clusters.
+    int real;
+    int reported;
+
+    if (usableBytes <= 2048 * 16384) {
+      real = 16384;
+      reported = 4;
+    } else if (usableBytes <= 2048 * 32768) {
+      real = 32768;
+      reported = 8;
+    } else {
+      real = 65536;
+      reported = 16;
+    }
+
+    return FatxConfig(
+      muSize: size,
+      clusterSizeReal: real,
+      sectorsPerClusterReported: reported,
+    );
+  }
+
+  /// Detects the geometry of an existing FATX image.
+  factory FatxConfig.detect(FatxStorage storage) {
+    final bytes = storage.read(0, 16);
+    final view = ByteData.sublistView(bytes);
+    
+    final sig = String.fromCharCodes(bytes.sublist(0, 4));
+    if (sig != 'FATX') throw Exception('Not a valid FATX image (Invalid signature)');
+
+    final reportedSectors = view.getUint32(8, Endian.little);
+    
+    // The "Hybrid Paradox": Real cluster size is 8x the reported size for MUs.
+    final real = reportedSectors * 8 * bytesPerSector;
+
+    return FatxConfig(
+      muSize: storage.length,
+      clusterSizeReal: real,
+      sectorsPerClusterReported: reportedSectors,
+    );
+  }
 }
 
 /// File Allocation Table (FAT16) management.
 class FatxTable {
   final FatxStorage storage;
+  final FatxConfig config;
   static const int fatEntrySize = 2; // Uint16
 
-  FatxTable(this.storage);
+  FatxTable(this.storage, this.config);
 
   /// Sets Entry 0 to Media Byte 0xF8FF.
   void initialize() {
@@ -42,12 +95,13 @@ class FatxTable {
   int allocateCluster() {
     // Total clusters = (StorageSize - DataOffset) / ClusterSize
     final usableBytes = storage.length - FatxConfig.dataOffset;
-    final maxClusters = (usableBytes / FatxConfig.clusterSizeReal).floor();
+    final maxClusters = (usableBytes / config.clusterSizeReal).floor();
     
-    // Safety: The 4KB FAT can hold at most 2048 entries. 
-    final limit = maxClusters > 2048 ? 2048 : maxClusters;
+    // FAT size is fixed at 4KB for our current implementation of MUs.
+    const limit = 2048; 
+    final searchLimit = maxClusters > limit ? limit : maxClusters;
 
-    for (var i = 2; i <= limit; i++) {
+    for (var i = 2; i <= searchLimit; i++) {
       if (getEntry(i) == 0x0000) {
         setEntry(i, 0xFFFF); // Mark as EOF
         return i;
@@ -59,11 +113,12 @@ class FatxTable {
   /// Counts the number of clusters marked as free (0x0000).
   int countFreeClusters() {
     final usableBytes = storage.length - FatxConfig.dataOffset;
-    final maxClusters = (usableBytes / FatxConfig.clusterSizeReal).floor();
-    final limit = maxClusters > 2048 ? 2048 : maxClusters;
+    final maxClusters = (usableBytes / config.clusterSizeReal).floor();
+    const limit = 2048;
+    final searchLimit = maxClusters > limit ? limit : maxClusters;
     
     var count = 0;
-    for (var i = 2; i <= limit; i++) {
+    for (var i = 2; i <= searchLimit; i++) {
       if (getEntry(i) == 0x0000) {
         count++;
       }
@@ -119,9 +174,9 @@ class FatxTimeUtils {
 /// Hybrid cluster mapping logic.
 class FatxMapper {
   /// Returns the byte offset for a given cluster index (1-based).
-  static int clusterToOffset(int clusterIndex) {
+  static int clusterToOffset(int clusterIndex, FatxConfig config) {
     if (clusterIndex < 1) throw ArgumentError('Cluster index must be >= 1');
-    return FatxConfig.dataOffset + (clusterIndex - 1) * FatxConfig.clusterSizeReal;
+    return FatxConfig.dataOffset + (clusterIndex - 1) * config.clusterSizeReal;
   }
 }
 

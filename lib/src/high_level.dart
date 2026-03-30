@@ -18,9 +18,9 @@ class XboxMemoryUnit {
 
   XboxMemoryUnit._(this._image);
 
-  /// Formats a new 8MB Xbox Memory Unit in memory.
-  factory XboxMemoryUnit.format() {
-    final buffer = FatxFormatter.format();
+  /// Formats a new Xbox Memory Unit in memory. Default is 8MB.
+  factory XboxMemoryUnit.format({int size = 8388608}) {
+    final buffer = FatxFormatter.format(size: size);
     return XboxMemoryUnit._(FatxImage(MemoryStorage(buffer)));
   }
 
@@ -50,7 +50,7 @@ class XboxMemoryUnit {
   }
 
   /// Returns the number of free bytes available.
-  int get freeBytes => _image.fat.countFreeClusters() * FatxConfig.clusterSizeReal;
+  int get freeBytes => _image.fat.countFreeClusters() * _image.config.clusterSizeReal;
 
   /// Returns the total capacity of the storage in bytes.
   int get totalBytes => _image.storage.length;

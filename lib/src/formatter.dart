@@ -2,12 +2,15 @@ import 'dart:typed_data';
 import 'fatx.dart';
 
 class FatxFormatter {
-  /// Formats an 8MB buffer as an Xbox FATX Memory Unit.
-  static Uint8List format() {
+  /// Formats an Xbox FATX Memory Unit of the specified size.
+  static Uint8List format({int size = 8388608}) {
+    final config = FatxConfig.forSize(size);
+
     // 1. Initialize entire image with 0xFF padding (XEMU Gold Standard)
-    final buffer = Uint8List(FatxConfig.muSize)..fillRange(0, FatxConfig.muSize, 0xFF);
+    final buffer = Uint8List(size)..fillRange(0, size, 0xFF);
     
     // 2. Clear FAT area to 0x00 for free clusters
+    // Our implementation currently targets a fixed 4KB FAT for MUs.
     for (var i = FatxConfig.fatOffset; i < FatxConfig.fatOffset + 4096; i++) {
       buffer[i] = 0x00;
     }
@@ -25,7 +28,7 @@ class FatxFormatter {
     view.setUint32(4, FatxConfig.volumeIdFixed, Endian.little);
 
     // Offset 8: Sectors Per Cluster (The "Lie")
-    view.setUint32(8, FatxConfig.sectorsPerClusterReported, Endian.little);
+    view.setUint32(8, config.sectorsPerClusterReported, Endian.little);
 
     // Offset 12: Root Directory Cluster (Usually 1)
     view.setUint32(12, 1, Endian.little);
