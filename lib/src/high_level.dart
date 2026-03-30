@@ -176,14 +176,13 @@ class XboxTitle {
 class XboxSave {
   final XboxTitle parent;
   final FatxDirEntry _entry;
+  final String folderName;
   late final String name;
 
-  XboxSave._(this.parent, this._entry) {
+  XboxSave._(this.parent, this._entry) : folderName = _entry.filename {
     final metaBytes = _readFile('SaveMeta.xbx');
-    name = (metaBytes != null ? XbxMeta.parseName('SaveMeta.xbx', metaBytes) : null) ?? _entry.filename;
+    name = (metaBytes != null ? XbxMeta.parseName('SaveMeta.xbx', metaBytes) : null) ?? folderName;
   }
-
-  String get folderName => _entry.filename;
 
   /// Total size of all files in this specific save.
   int get size => parent._mu._image.calculateDirectorySize(_entry.firstCluster);

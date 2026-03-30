@@ -38,6 +38,23 @@ void main() {
       expect(title!.id, '53450030');
     });
 
+    test('XboxSave.folderName should be a hex string and a fallback for name', () {
+      Uint8List bytes = File('test/test_files/XEMU_Created_default_roster.bin').readAsBytesSync();
+      XboxMemoryUnit mu = XboxMemoryUnit.fromBytes(bytes);
+
+      XboxTitle title = mu.titles.first;
+      XboxSave save = title.saves.first;
+
+      // In this specific bin file, the folderName is '19FA1AF775EF'
+      expect(save.folderName, matches(RegExp(r'^[0-9A-F]+$')));
+      expect(save.folderName.length, greaterThan(0));
+      expect(save.folderName, '19FA1AF775EF');
+      
+      // Also verify that it's used in name search
+      expect(title.findSave('19FA1AF775EF'), isNotNull);
+      expect(title.findSave('19fa1af775ef'), isNotNull); // case-insensitive check
+    });
+
     test('High-level Export (Context-Aware)', () {
       Uint8List bytes = File('test/test_files/XEMU_Created_default_roster.bin').readAsBytesSync();
       XboxMemoryUnit mu = XboxMemoryUnit.fromBytes(bytes);
