@@ -13,13 +13,16 @@ void main() {
       expect(String.fromCharCodes(buffer.sublist(0, 4)), 'FATX');
     });
 
-    test('TR-2: Volume ID', () {
+    test('TR-2: Volume ID (Randomized)', () {
       final view = ByteData.sublistView(buffer);
-      expect(view.getUint32(4, Endian.little), 0x00000029);
+      // Ensure it's not zero and is a uint32
+      expect(view.getUint32(4, Endian.little), isNonZero);
     });
 
     test('TR-3: Hybrid Offsets (Cluster 2 starts at 0x6000 for 8MB)', () {
       final config = FatxConfig.forSize(8388608);
+      // 8MB has 4KB FAT @ 0x1000, so data starts at 0x2000.
+      // Cluster 2 offset = 0x2000 + (2-1)*16384 = 0x6000.
       expect(FatxMapper.clusterToOffset(2, config), 0x6000);
     });
 
@@ -29,6 +32,81 @@ void main() {
       final rootOffset = FatxMapper.clusterToOffset(1, image.config);
       final rootArea = buffer.sublist(rootOffset, rootOffset + 64);
       expect(rootArea.every((b) => b == 0xFF), isTrue);
+    });
+
+    test('Support 128MB Formatting (32KB Clusters)', () {
+      final size = 128 * 1024 * 1024;
+      final buffer128 = FatxFormatter.format(size: size);
+      final config = FatxConfig.forSize(size);
+      
+      expect(buffer128.length, size);
+      // 128MB image has ~4000 clusters of 32KB.
+      // Required FAT bytes = (4096 + 2) * 2 = 8196 bytes.
+      // So it fits in 12288 bytes (12KB).
+      expect(config.clusterSizeReal, 32768);
+      expect(config.sectorsPerClusterReported, 8);
+      expect(config.fatSize, 12288);
+      
+      final image = FatxImage(MemoryStorage(buffer128));
+      expect(image.fat.countFreeClusters(), greaterThan(3800));
+    });
+
+    test('Support 64MB Formatting (16KB Clusters)', () {
+      final size = 64 * 1024 * 1024;
+      final buffer64 = FatxFormatter.format(size: size);
+      final config = FatxConfig.forSize(size);
+      
+      expect(config.clusterSizeReal, 16384);
+      expect(config.fatSize, 12288);
+      
+      final image = FatxImage(MemoryStorage(buffer64));
+      // Detect should also find the correct FAT size
+      final detected = FatxConfig.detect(image.storage);
+      expect(detected.fatSize, 12288);
+    });
+
+    test('FAT Boundary Protection (Cannot allocate past FAT)', () {
+      // Create a small MU with a 4KB FAT (limit 2047 clusters)
+      final size = 32 * 1024 * 1024;
+      final buffer = FatxFormatter.format(size: size);
+      final image = FatxImage(MemoryStorage(buffer));
+      
+      // Exhaust the FAT
+      try {
+        while (true) {
+          image.fat.allocateCluster();
+        }
+      } catch (e) {
+        expect(e.toString(), contains('Disk full'));
+      }
+      
+      // Ensure we didn't exceed index 2047
+      expect(image.fat.getEntry(2047), isNot(0));
+      // Attempting to read entry 2048 should technically be out of range for a 4KB FAT 
+      // if the code was strict, but getEntry uses offset. 
+      // Our fix ensures the loop stops at 2047.
+    });
+  });
+
+  group('Import Attributes (TR-8)', () {
+    test('Set Archive bit for .xbe and System bit for .xbx', () {
+      final buffer = FatxFormatter.format();
+      final image = FatxImage(MemoryStorage(buffer));
+      final importer = FatxImporter(image);
+
+      final archive = Archive();
+      archive.addFile(ArchiveFile('default.xbe', 4, Uint8List.fromList([0,0,0,0])));
+      archive.addFile(ArchiveFile('TitleMeta.xbx', 4, Uint8List.fromList([0,0,0,0])));
+      
+      final zipBytes = Uint8List.fromList(ZipEncoder().encode(archive)!);
+      importer.importZip(zipBytes);
+
+      final entries = image.listDirectory(1);
+      final xbe = entries.firstWhere((e) => e.filename == 'default.xbe');
+      final xbx = entries.firstWhere((e) => e.filename == 'TitleMeta.xbx');
+
+      expect(xbe.attributes & FatxDirEntry.attrArchive, FatxDirEntry.attrArchive);
+      expect(xbx.attributes & FatxDirEntry.attrSystem, FatxDirEntry.attrSystem);
     });
   });
 

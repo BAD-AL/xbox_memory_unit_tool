@@ -1,24 +1,33 @@
 # Technical Specification: Xbox FATX Memory Unit (MU) Implementation
 
 ## 1. Introduction
-This specification defines the requirements for a pure Dart implementation of the Xbox FATX filesystem, specifically optimized for 8MB Memory Unit (MU) images.
+This specification defines the requirements for a pure Dart implementation of the Xbox FATX filesystem, supporting standard (8MB) and "Mega" Memory Unit (MU) images up to 128MB.
 
-## 2. Filesystem Layout (8MB Standard)
-The image must be exactly **8,388,608 bytes**.
+## 2. Filesystem Layout
+The image size varies (8MB, 16MB, 32MB, 64MB, 128MB).
 
 | Offset | Size | Name | Purpose |
 | :--- | :--- | :--- | :--- |
 | `0x0000` | 4 KB | Superblock | Filesystem header and metadata |
-| `0x1000` | 4 KB | FAT Area | File Allocation Table (FAT16) |
-| `0x2000` | Variable | Data Area | Clusters containing files and folders |
+| `0x1000` | Dynamic | FAT Area | File Allocation Table (FAT16) |
+| `DataOffset` | Variable | Data Area | Clusters containing files and folders |
 
 ### 2.1 The "Hybrid" Cluster Paradox
-For 8MB Memory Units to be visible in Xemu and games like NFL 2K5, the filesystem must implement a specific contradiction:
-1.  **Reported Cluster Size**: The Superblock MUST state **4 sectors per cluster (2KB)**.
-2.  **Actual Data Alignment**: All internal offset calculations MUST use **32 sectors per cluster (16KB)**.
+MUs use a "hybrid" geometry to remain compatible with the Xbox kernel's MU driver:
+1.  **Reported Cluster Size**: The Superblock states a smaller cluster size (The "Lie").
+2.  **Actual Data Alignment**: All internal offset calculations use a size exactly **8x larger** than reported (The "Truth").
+
+#### 2.2 Capacity Constraints
+- **Maximum Clusters**: MUs are strictly limited to **4095 clusters**.
+- **Cluster Size Selection**:
+    - **<= 64MB**: 16KB real clusters (4 sectors reported).
+    - **128MB**: 32KB real clusters (8 sectors reported).
+- **FAT Size**: The FAT must be large enough to address all clusters. It should be aligned to 4KB pages.
+    - 8MB - 32MB: 4KB FAT
+    - 64MB: 128MB: 8KB - 16KB FAT (depending on cluster count)
 
 **Formula for Byte Offset of Cluster N**:
-`Offset = 0x2000 + (N - 1) * 16384`
+`Offset = (0x1000 + FatSize) + (N - 1) * RealClusterSize`
 
 ## 3. Binary Structures
 
@@ -30,8 +39,8 @@ For 8MB Memory Units to be visible in Xemu and games like NFL 2K5, the filesyste
 | Offset | Type | Value | Name |
 | :--- | :--- | :--- | :--- |
 | 0 | String(4) | `FATX` | Signature |
-| 4 | Uint32 | `0x00000029` | Volume ID (Fixed for MU) |
-| 8 | Uint32 | `0x00000004` | Sectors Per Cluster (The "Lie") |
+| 4 | Uint32 | Variable | Volume ID (Should be randomized) |
+| 8 | Uint32 | 4 or 8 | Sectors Per Cluster (The "Lie") |
 | 12 | Uint32 | `0x00000001` | Root Directory Cluster |
 | 16 | Uint16 | `0x0000` | Unknown/Reserved |
 | 18 | Padding | `0xFF`... | Padding to 4096 bytes |
@@ -56,6 +65,7 @@ For 8MB Memory Units to be visible in Xemu and games like NFL 2K5, the filesyste
 - `0x02`: Hidden
 - `0x04`: System (**Requirement**: All `.xbx` files MUST have this bit set for dashboard visibility).
 - `0x10`: Directory
+- `0x20`: Archive (**Requirement**: Recommended for `.xbe` executable files).
 
 ## 4. Logical Implementation
 
@@ -76,19 +86,19 @@ For 8MB Memory Units to be visible in Xemu and games like NFL 2K5, the filesyste
 5. Extract metadata and repeat.
 
 ### 4.3 Formatting a New Image
-1. Create an 8MB buffer filled with **`0xFF`**.
+1. Create a buffer of the target size filled with **`0xFF`**.
 2. Write the Superblock at `0x0000`.
 3. Initialize FAT at `0x1000`:
    - Set Entry 0 to `0xFFF8`.
    - Set Entry 1 to `0xFFFF` (Empty root).
    - **All other FAT entries MUST be `0x0000`**.
-4. **Important**: While the image is padded with `0xFF`, the FAT area entries (except 0 and 1) must be `0x0000` to indicate free space.
+4. **Important**: The FAT area must be zeroed (except entries 0 and 1) to indicate free space.
 
 ## 5. ZIP Integration
 - **Import**: 
   - If a path begins with `UDATA/`, strip it. 
   - Ensure the parent TitleID directory exists.
-  - Apply `0x04` attribute to `.xbx` files.
+  - Apply `0x04` attribute to `.xbx` files and `0x20` to `.xbe` files.
 - **Export**:
   - Prepend `UDATA/` to all paths.
   - Recursively bundle files into the `archive` package structure.
@@ -108,9 +118,7 @@ int packTime(DateTime dt) {
 
 ### Offset Calculation
 ```dart
-int clusterToOffset(int clusterIndex) {
-  const int clusterOffset = 0x2000;
-  const int clusterSize = 16384; // 16KB Truth
-  return clusterOffset + (clusterIndex - 1) * clusterSize;
+int clusterToOffset(int clusterIndex, FatxConfig config) {
+  return config.dataOffset + (clusterIndex - 1) * config.clusterSizeReal;
 }
 ```

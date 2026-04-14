@@ -64,10 +64,17 @@ class FatxImporter {
 
     // Write file
     final firstCluster = _writeFileData(data);
+    int attr = 0x00;
+    if (filename.toLowerCase().endsWith('.xbx')) {
+      attr = FatxDirEntry.attrSystem;
+    } else if (filename.toLowerCase().endsWith('.xbe')) {
+      attr = FatxDirEntry.attrArchive;
+    }
+
     final entry = FatxDirEntry()
       ..filename = filename
       ..filenameLength = filename.length
-      ..attributes = filename.toLowerCase().endsWith('.xbx') ? FatxDirEntry.attrSystem : 0x00
+      ..attributes = attr
       ..firstCluster = firstCluster
       ..fileSize = data.length;
 

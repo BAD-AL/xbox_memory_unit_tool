@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:math';
 import 'storage.dart';
 
 /// Xbox FATX constants and dynamic configuration.
@@ -6,41 +7,67 @@ class FatxConfig {
   final int muSize;
   final int clusterSizeReal;
   final int sectorsPerClusterReported;
+  final int fatSize;
 
   static const int superblockOffset = 0x0000;
   static const int fatOffset = 0x1000;
-  static const int dataOffset = 0x2000;
   static const int bytesPerSector = 512;
   static const int volumeIdFixed = 0x00000029;
 
-  FatxConfig({required this.muSize, required this.clusterSizeReal, required this.sectorsPerClusterReported});
+  FatxConfig({
+    required this.muSize,
+    required this.clusterSizeReal,
+    required this.sectorsPerClusterReported,
+    required this.fatSize,
+  });
+
+  /// The data area offset depends on the FAT size.
+  int get dataOffset => fatOffset + fatSize;
+
+  /// Generates a random 32-bit Volume ID.
+  static int generateRandomVolumeId() {
+    final random = Random();
+    return random.nextInt(0xFFFFFFFF);
+  }
 
   /// Calculates the appropriate geometry for a given MU size.
   factory FatxConfig.forSize(int size) {
-    // We target a 4KB FAT (2048 entries) starting at 0x1000 and Data at 0x2000.
-    final usableBytes = size - dataOffset;
+    // Determine the hybrid cluster size.
+    // 8MB, 16MB, 32MB, 64MB -> 16KB real clusters (4 sectors reported)
+    // 128MB -> 32KB real clusters (8 sectors reported)
     
-    // Determine cluster size such that we don't exceed 2048 clusters.
-    // 8MB, 16MB, 32MB -> 16KB clusters.
-    // 64MB -> 32KB clusters.
     int real;
     int reported;
 
-    if (usableBytes <= 2048 * 16384) {
+    if (size <= 67108864) { // <= 64MB
       real = 16384;
       reported = 4;
-    } else if (usableBytes <= 2048 * 32768) {
+    } else {
+      // 128MB needs 32KB clusters to stay under the ~4095 cluster limit
+      // of many FATX drivers for Memory Units.
       real = 32768;
       reported = 8;
-    } else {
-      real = 65536;
-      reported = 16;
+    }
+
+    // FAT must be large enough to hold entries for all clusters.
+    // Each cluster entry is 2 bytes.
+    // Clusters = (Size - FatOffset - FatSize) / ClusterSize
+    
+    var currentFatSize = 4096;
+    while (true) {
+        final usableBytes = size - fatOffset - currentFatSize;
+        final clusters = (usableBytes / real).floor();
+        final requiredFatBytes = (clusters + 2) * 2;
+        
+        if (requiredFatBytes <= currentFatSize) break;
+        currentFatSize += 4096; // Increment by 4KB pages
     }
 
     return FatxConfig(
       muSize: size,
       clusterSizeReal: real,
       sectorsPerClusterReported: reported,
+      fatSize: currentFatSize,
     );
   }
 
@@ -57,10 +84,22 @@ class FatxConfig {
     // The "Hybrid Paradox": Real cluster size is 8x the reported size for MUs.
     final real = reportedSectors * 8 * bytesPerSector;
 
+    // Detect FAT size by looking at FAT entries (simplified: assume 4KB for standard MUs, 
+    // but here we can check the first cluster of the root directory)
+    // Actually, for detection, we can just assume 4KB if MU <= 32MB, 
+    // or calculate it based on MU size if we trust our forSize logic.
+    // Standard MUs use 4KB.
+    var detectedFatSize = 4096;
+    if (storage.length > 33554432) { // > 32MB
+         // Re-calculate what it *should* be
+         detectedFatSize = FatxConfig.forSize(storage.length).fatSize;
+    }
+
     return FatxConfig(
       muSize: storage.length,
       clusterSizeReal: real,
       sectorsPerClusterReported: reportedSectors,
+      fatSize: detectedFatSize,
     );
   }
 }
@@ -94,11 +133,11 @@ class FatxTable {
   /// Finds the next free cluster (starting from index 2).
   int allocateCluster() {
     // Total clusters = (StorageSize - DataOffset) / ClusterSize
-    final usableBytes = storage.length - FatxConfig.dataOffset;
+    final usableBytes = storage.length - config.dataOffset;
     final maxClusters = (usableBytes / config.clusterSizeReal).floor();
     
-    // FAT size is fixed at 4KB for our current implementation of MUs.
-    const limit = 2048; 
+    // Each FAT entry is 2 bytes. Max clusters index is limited by FAT size.
+    final limit = (config.fatSize / fatEntrySize).floor() - 1;
     final searchLimit = maxClusters > limit ? limit : maxClusters;
 
     for (var i = 2; i <= searchLimit; i++) {
@@ -112,9 +151,9 @@ class FatxTable {
 
   /// Counts the number of clusters marked as free (0x0000).
   int countFreeClusters() {
-    final usableBytes = storage.length - FatxConfig.dataOffset;
+    final usableBytes = storage.length - config.dataOffset;
     final maxClusters = (usableBytes / config.clusterSizeReal).floor();
-    const limit = 2048;
+    final limit = (config.fatSize / fatEntrySize).floor() - 1;
     final searchLimit = maxClusters > limit ? limit : maxClusters;
     
     var count = 0;
@@ -176,7 +215,7 @@ class FatxMapper {
   /// Returns the byte offset for a given cluster index (1-based).
   static int clusterToOffset(int clusterIndex, FatxConfig config) {
     if (clusterIndex < 1) throw ArgumentError('Cluster index must be >= 1');
-    return FatxConfig.dataOffset + (clusterIndex - 1) * config.clusterSizeReal;
+    return config.dataOffset + (clusterIndex - 1) * config.clusterSizeReal;
   }
 }
 
@@ -188,6 +227,7 @@ class FatxDirEntry {
   static const int attrHidden = 0x02;
   static const int attrSystem = 0x04;
   static const int attrDirectory = 0x10;
+  static const int attrArchive = 0x20;
 
   int filenameLength = 0;
   int attributes = 0;
